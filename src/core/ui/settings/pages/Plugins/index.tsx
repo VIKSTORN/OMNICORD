@@ -78,7 +78,7 @@ export default function Plugins() {
     const [, bump] = useState(0);
     const refresh = () => bump(n => n + 1);
 
-    const all = [...registeredPlugins.values()].filter(p => isPluginInstalled(p.id));
+    const all = [...registeredPlugins.values()].filter(p => p?.id && p.display && isPluginInstalled(p.id));
     const omni = all.filter(p => p.id.startsWith("omnicord.")).map(unifyBunnyPlugin);
     const core = all.filter(p => isCorePlugin(p.id) && !p.id.startsWith("omnicord.")).map(unifyBunnyPlugin);
     const external = [
