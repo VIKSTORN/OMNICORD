@@ -3,7 +3,10 @@ import chroma from "chroma-js";
 
 import { SafeInput, SafeSwitchRow } from "@core/ui/components/SafeUI";
 
+import { updateBunnyColor } from "@lib/addons/themes/colors/updater";
+
 import { addQuickActions } from "../shared/quick";
+import { installEngine, rawNames, setColors, tokenNames, uninstallEngine } from "./engine";
 
 import { icon, Row, Scroll, Section } from "../shared/ui";
 import { findByProps, logger, omniPlugin, ReactNative as RN, showToast, useProxy } from "../vd";
@@ -56,9 +59,8 @@ function classify(k: string, p: Palette): string | undefined {
 /** Remap Discord's grey ramp (PRIMARY_100..900 / NEUTRAL_*) onto the palette so hardcoded surfaces follow too. */
 function rawScale(p: Palette) {
     const out: Record<string, string> = {};
-    const raw = findByProps("SemanticColor")?.RawColor ?? {};
     const mix = (a: string, b: string, f: number) => chroma.mix(a, b, Math.max(0, Math.min(1, f)), "rgb").hex();
-    for (const k of Object.keys(raw)) {
+    for (const k of rawNames()) {
         const m = /^PRIMARY_(\d+)$/.exec(k);
         if (!m) continue;
         const n = +m[1];
@@ -91,7 +93,7 @@ function buildTheme(p: Palette, bg?: S["bg"], deep = true) {
     };
     // Cover every semantic token Discord has in this version, by name.
     try {
-        const keys = Object.keys(findByProps("SemanticColor")?.SemanticColor ?? {});
+        const keys = tokenNames();
         for (const k of keys) {
             if (k in semanticColors) continue;
             const c = classify(k, p);
@@ -113,16 +115,30 @@ function apply(st: S, notify = true) {
     const p = st.palette;
     const bad = FIELDS.find(([k]) => !HEX.test(p[k] ?? ""));
     if (bad) return void showToast(`Invalid color: ${bad[1]}`, icon("Small"));
-    const info = { id: THEME_ID, selected: false, data: buildTheme(p, st.bg, st.deep) } as any;
-    themes.themes[THEME_ID] = info;
-    themes.selectTheme(themes.themes[THEME_ID]);
+    const data = buildTheme(p, st.bg, st.deep);
+    dropLegacy();
+    if (!installEngine()) return void showToast("Theme engine not supported on this Discord version");
+    const sem: Record<string, string> = {};
+    for (const [k, v] of Object.entries(data.semanticColors)) sem[k] = v[0];
+    setColors(sem, data.rawColors);
+    // Background picture goes through Kettu's chat-background patch (no theme switch).
+    try { updateBunnyColor(data.background ? data as any : null, { update: false }); } catch (e) { logger.error(e); }
     st.enabled = true;
     notify && showToast("Theme applied (restart Discord if some parts didn't change)", icon("check"));
 }
 
+/** Release ≤5 registered a Kettu theme (fake theme key), which Discord 349 ignores. Remove it. */
+function dropLegacy() {
+    try {
+        if (themes.getCurrentTheme()?.id === THEME_ID) themes.selectTheme(null);
+        delete themes.themes[THEME_ID];
+    } catch (e) { logger.error(e); }
+}
+
 function reset(st: S, keepFlag = false) {
-    if (themes.getCurrentTheme()?.id === THEME_ID) themes.selectTheme(null);
-    delete themes.themes[THEME_ID];
+    dropLegacy();
+    setColors(null, null);
+    try { updateBunnyColor(null, { update: false }); } catch { }
     if (!keepFlag) st.enabled = false;
 }
 
@@ -162,7 +178,7 @@ export default omniPlugin<S>({
     defaults,
     start(st) {
         current = st;
-        if (st.enabled && !themes.themes[THEME_ID]) apply(st, false);
+        if (st.enabled) apply(st, false); else dropLegacy();
         const same = (a: Palette) => FIELDS.every(([k]) => a[k]?.toLowerCase() === st.palette[k]?.toLowerCase());
         unquick = addQuickActions({
             id: "theme", order: 40,
@@ -176,7 +192,7 @@ export default omniPlugin<S>({
             ],
         });
     },
-    stop() { unquick?.(); if (current && themes.themes[THEME_ID]) reset(current, true); },
+    stop() { unquick?.(); if (current) reset(current, true); uninstallEngine(); },
     Settings({ storage }) {
         useProxy(storage);
         const p = storage.palette;
