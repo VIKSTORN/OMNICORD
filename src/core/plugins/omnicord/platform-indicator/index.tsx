@@ -1,4 +1,4 @@
-import { Scroll, Switch } from "../shared/ui";
+import { Scroll, Section, Switch } from "../shared/ui";
 import { after, findByName, findByStoreName, omniPlugin, useProxy } from "../vd";
 
 const defaults = { showStatus: true, showSelf: true, ignoreBots: true };
@@ -53,9 +53,11 @@ export default omniPlugin<S>({
         useProxy(storage);
         return (
             <Scroll>
-                <Switch store={storage} k="showStatus" label="Show status color" sub="🟢 online · 🟡 idle · 🔴 dnd per device" iconName="ic_status_online" />
-                <Switch store={storage} k="showSelf" label="Show on my messages" iconName="ic_person" />
-                <Switch store={storage} k="ignoreBots" label="Hide on bots" iconName="ic_robot_24px" />
+                <Section>
+                    <Switch store={storage} k="showStatus" label="Show status color" sub="🟢 online · 🟡 idle · 🔴 dnd per device" />
+                    <Switch store={storage} k="showSelf" label="Show on my messages" />
+                    <Switch store={storage} k="ignoreBots" label="Hide on bots" />
+                </Section>
             </Scroll>
         );
     },

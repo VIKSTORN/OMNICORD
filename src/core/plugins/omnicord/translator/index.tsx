@@ -1,5 +1,5 @@
 import { hideSheet, makeRow, patchMessageSheet } from "../shared/actionSheet";
-import { FormDivider, icon, Input, Scroll, Switch } from "../shared/ui";
+import { icon, Input, Scroll, Section, Switch } from "../shared/ui";
 import { findByProps, findByStoreName, FluxDispatcher, instead, logger, omniPlugin, registerCommand, showToast, useProxy } from "../vd";
 import { translateSafe } from "./api";
 
@@ -100,11 +100,14 @@ export default omniPlugin<S>({
         useProxy(storage);
         return (
             <Scroll>
-                <Input store={storage} k="target" title="Translate messages to (language code)" placeholder="en" />
-                <Switch store={storage} k="immersive" label="Keep original text" sub="Show original above the translation" iconName="ic_chat_bubble_filled_24px" />
-                <FormDivider />
-                <Switch store={storage} k="autoOut" label="Auto-translate what I send" sub="Every message you send gets translated first" iconName="ic_send" />
-                <Input store={storage} k="outTarget" title="Send messages in (language code)" placeholder="en" />
+                <Section title="Reading">
+                    <Input store={storage} k="target" title="Translate messages to (language code, e.g. en, fr)" placeholder="en" />
+                    <Switch store={storage} k="immersive" label="Keep original text" sub="Show original above the translation" />
+                </Section>
+                <Section title="Sending">
+                    <Switch store={storage} k="autoOut" label="Auto-translate what I send" sub="Every message you send gets translated first" />
+                    <Input store={storage} k="outTarget" title="Send messages in (language code)" placeholder="en" />
+                </Section>
             </Scroll>
         );
     },

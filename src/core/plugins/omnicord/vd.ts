@@ -1,6 +1,5 @@
 // Omnicord: Vendetta-style API surface backed by Kettu internals, so built-in plugins
 // read like regular community plugins.
-import { showConfirmationAlert as _confirm } from "@core/vendetta/alerts";
 import { useProxy } from "@core/vendetta/storage";
 import { findAssetId } from "@lib/api/assets";
 import { registerCommand } from "@lib/api/commands";
@@ -13,17 +12,22 @@ import { clipboard, FluxDispatcher, React, ReactNative, url } from "@metro/commo
 import { Forms } from "@metro/common/components";
 import { semanticColors } from "@ui/color";
 import { createThemedStyleSheet } from "@ui/styles";
-import { showToast } from "@ui/toasts";
+import { showToast as _toast } from "@ui/toasts";
 
 import { defineCorePlugin } from "..";
 
 export {
     after, before, clipboard, findByName, findByProps, findByStoreName, findInReactTree, FluxDispatcher, Forms,
-    instead, React, ReactNative, registerCommand, semanticColors, showToast, url, useProxy,
+    instead, React, ReactNative, registerCommand, semanticColors, url, useProxy,
 };
 export const stylesheet = { createThemedStyleSheet };
+export const showToast = (content: string, asset?: number) => {
+    try { _toast(content, asset); } catch { ReactNative.ToastAndroid?.show(content, ReactNative.ToastAndroid.SHORT); }
+};
 export const getAssetIDByName = (name: string) => findAssetId(name) as number;
-export const showConfirmationAlert = (o: any) => _confirm(o);
+/** Native Android dialog: doesn't depend on Discord's alert components. */
+export const showConfirmationAlert = (o: { title: string; content: string; confirmText?: string; onConfirm: () => void; }) =>
+    ReactNative.Alert.alert(o.title, o.content, [{ text: "Cancel", style: "cancel" }, { text: o.confirmText ?? "OK", onPress: o.onConfirm }]);
 export const logger = new LoggerClass("Omnicord");
 
 interface OmniPlugin<S extends object> {

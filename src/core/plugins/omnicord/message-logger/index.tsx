@@ -1,5 +1,5 @@
 // Approach from redstonekasi's message-logger: MESSAGE_DELETE -> MESSAGE_UPDATE flagged as deleted.
-import { FormDivider, Scroll, Switch } from "../shared/ui";
+import { Scroll, Section, Switch } from "../shared/ui";
 import { after, before, findByName, findByProps, findByStoreName, FluxDispatcher, instead, omniPlugin, ReactNative, useProxy } from "../vd";
 
 const defaults = { logDeletes: true, logEdits: true, ignoreBots: false, ignoreSelf: false };
@@ -89,11 +89,14 @@ export default omniPlugin<S>({
         useProxy(storage);
         return (
             <Scroll>
-                <Switch store={storage} k="logDeletes" label="Log deleted messages" iconName="ic_message_delete" />
-                <Switch store={storage} k="logEdits" label="Log edits" sub="Old versions shown under the message" iconName="ic_edit_24px" />
-                <FormDivider />
-                <Switch store={storage} k="ignoreBots" label="Ignore bots" iconName="ic_robot_24px" />
-                <Switch store={storage} k="ignoreSelf" label="Ignore my own messages" iconName="ic_person" />
+                <Section title="Log">
+                    <Switch store={storage} k="logDeletes" label="Log deleted messages" />
+                    <Switch store={storage} k="logEdits" label="Log edits" sub="Old versions shown under the message" />
+                </Section>
+                <Section title="Ignore">
+                    <Switch store={storage} k="ignoreBots" label="Ignore bots" />
+                    <Switch store={storage} k="ignoreSelf" label="Ignore my own messages" />
+                </Section>
             </Scroll>
         );
     },
