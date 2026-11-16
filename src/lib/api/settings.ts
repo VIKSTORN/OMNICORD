@@ -29,7 +29,7 @@ export const loaderConfig = wrapSync(createStorage<LoaderConfig>(
     createFileBackend(getLoaderConfigPath(), {
         customLoadUrl: {
             enabled: false,
-            url: "http://localhost:4040/kettu.js"
+            url: "http://localhost:4040/omnicord.js"
         }
     })
 ));

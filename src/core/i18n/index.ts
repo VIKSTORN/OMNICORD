@@ -16,11 +16,14 @@ let _lastSetLocale: string | null = null;
 
 const _loadedLocale = new Set<string>();
 const _loadedStrings = {} as Record<string, typeof langDefault>;
+const BRAND_KEYS = new Set<string>(["PUPU", "PUPU_URL", "COMMAND_DEBUG_DESC", "LOAD_FROM_CUSTOM_URL_DEC", "URL_PLACEHOLDER"]);
 
 export const Strings = new Proxy(
     {},
     {
         get: (_t, prop: keyof typeof langDefault) => {
+            // Omnicord: brand strings always come from our default.json
+            if (BRAND_KEYS.has(prop)) return langDefault[prop];
             if (_currentLocale && _loadedStrings[_currentLocale]?.[prop]) {
                 return _loadedStrings[_currentLocale]?.[prop];
             }

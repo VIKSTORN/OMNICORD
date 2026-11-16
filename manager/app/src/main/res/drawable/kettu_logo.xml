@@ -1,0 +1,14 @@
+<!-- Omnicord logo: ring + core (kept file name so existing references work) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024"
+    android:width="1024dp"
+    android:height="1024dp">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M512,272 A240,240 0 1,1 511.9,272 Z M512,340 A172,172 0 1,0 512.1,340 Z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M512,442 A70,70 0 1,1 511.9,442 Z" />
+</vector>

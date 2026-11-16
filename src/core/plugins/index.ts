@@ -11,6 +11,15 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "bunny.badges": require("./badges"),
     "bunny.notrack": require("./notrack"),
     "bunny.messagefix": require("./messagefix"),
+
+    // Omnicord built-ins
+    "omnicord.translator": require("./omnicord/translator"),
+    "omnicord.message-logger": require("./omnicord/message-logger"),
+    "omnicord.custom-theme": require("./omnicord/custom-theme"),
+    "omnicord.platform-indicator": require("./omnicord/platform-indicator"),
+    "omnicord.read-all": require("./omnicord/read-all"),
+    "omnicord.voice-send": require("./omnicord/voice-send"),
+    "omnicord.voice-save": require("./omnicord/voice-save"),
 });
 
 /**
