@@ -52,7 +52,9 @@ export const FormRadio = findSingular("FormRadio");
 export const FormCheckbox = findSingular("FormCheckbox");
 
 // Card
-export const Card = findProp("Card");
+// Omnicord: Discord's Card crashes on 349.x ("AnimatedValue: Attempting to set value to undefined").
+// Use a plain React Native card with the same common props instead.
+export { SafeCard as Card } from "@core/ui/components/SafeCard";
 export const RedesignCompat = proxyLazy(() => findByProps("RedesignCompat").RedesignCompat);
 
 // Alert
