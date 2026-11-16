@@ -20,6 +20,7 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "omnicord.read-all": require("./omnicord/read-all").default,
     "omnicord.voice-send": require("./omnicord/voice-send").default,
     "omnicord.voice-save": require("./omnicord/voice-save").default,
+    "omnicord.quick-menu": require("./omnicord/quick-menu").default,
 });
 
 /**
