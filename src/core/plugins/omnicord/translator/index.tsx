@@ -1,6 +1,8 @@
 import { hideSheet, makeRow, patchMessageSheet } from "../shared/actionSheet";
+import { nameOf, onJsx, seenNames } from "../shared/jsx";
+import { addQuickActions, openQuickMenu } from "../shared/quick";
 import { icon, Input, Scroll, Section, Switch } from "../shared/ui";
-import { findByProps, findByStoreName, FluxDispatcher, instead, logger, omniPlugin, registerCommand, showToast, useProxy } from "../vd";
+import { findByProps, findByStoreName, FluxDispatcher, instead, logger, omniPlugin, React, ReactNative as RN, registerCommand, showToast, useProxy } from "../vd";
 import { translateSafe } from "./api";
 
 const defaults = {
@@ -8,6 +10,7 @@ const defaults = {
     outTarget: "en",   // language you send in
     immersive: true,   // keep original + translation
     autoOut: false,    // translate your outgoing messages
+    chatButton: true,  // 🌐 button in the chat bar
 };
 type S = typeof defaults;
 
@@ -26,6 +29,72 @@ function setContent(msg: { id: string; channel_id: string; }, content: string) {
     } as any);
 }
 
+const LANGS: [string, string][] = [
+    ["en", "English"], ["fr", "Français"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"],
+    ["nl", "Nederlands"], ["pl", "Polski"], ["ru", "Русский"], ["uk", "Українська"], ["tr", "Türkçe"], ["ar", "العربية"],
+    ["hi", "हिन्दी"], ["ja", "日本語"], ["ko", "한국어"], ["zh-CN", "中文"], ["vi", "Tiếng Việt"], ["id", "Indonesia"],
+];
+const langName = (c: string) => LANGS.find(([k]) => k === c)?.[1] ?? c;
+
+async function translateOne(msg: any, s: S) {
+    const { src, text } = await translateSafe(msg.content, s.target);
+    if (!text || src === s.target || text.trim() === msg.content.trim()) return false;
+    originals.set(msg.id, { channel_id: msg.channel_id, content: msg.content });
+    const tag = `-# 🌐 ${src} → ${s.target}`;
+    setContent(msg, s.immersive ? `${msg.content}\n${text}\n${tag}` : `${text}\n${tag}`);
+    return true;
+}
+
+const currentChannel = () => findByStoreName("SelectedChannelStore")?.getChannelId?.();
+
+function recentMessages(channelId: string, n: number): any[] {
+    const m = MessageStore().getMessages(channelId);
+    const arr: any[] = m?.toArray?.() ?? m?._array ?? [];
+    return arr.slice(-n);
+}
+
+async function translateChat(s: S) {
+    const cid = currentChannel();
+    if (!cid) return showToast("Open a chat first");
+    const msgs = recentMessages(cid, 30).filter(m => m?.content?.trim() && !originals.has(m.id));
+    if (!msgs.length) return showToast("Nothing to translate");
+    showToast(`Translating ${msgs.length} messages…`);
+    let done = 0;
+    for (const m of msgs) {
+        try { if (await translateOne(m, s)) done++; } catch (e) { logger.error(e); }
+    }
+    showToast(done ? `Translated ${done} messages` : `Already in ${langName(s.target)}`, icon("check"));
+}
+
+function restoreChat(all = false) {
+    const cid = currentChannel();
+    let n = 0;
+    for (const [id, o] of originals) {
+        if (!all && o.channel_id !== cid) continue;
+        setContent({ id, channel_id: o.channel_id }, o.content);
+        originals.delete(id); n++;
+    }
+    showToast(n ? `Restored ${n} messages` : "Nothing to restore");
+}
+
+const TR_IDS = ["tr-chat", "tr-restore", "tr-auto", "tr-lang", "tr-out"];
+
+function ChatTranslateButton({ s }: { s: S; }) {
+    useProxy(s);
+    const src = icon("LanguageIcon") ?? icon("ic_locale_24px");
+    const tint = s.autoOut ? "#7c5cff" : "#b5bac1";
+    return (
+        <RN.Pressable
+            hitSlop={6}
+            onPress={() => openQuickMenu(TR_IDS, "🌐 Translate")}
+            onLongPress={() => { s.autoOut = !s.autoOut; showToast(`Auto-translate sending: ${s.autoOut ? "ON → " + langName(s.outTarget) : "OFF"}`); }}
+            style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", marginHorizontal: 2 }}>
+            {src ? <RN.Image source={src} style={{ width: 24, height: 24, tintColor: tint }} />
+                : <RN.Text style={{ fontSize: 20, color: tint }}>🌐</RN.Text>}
+        </RN.Pressable>
+    );
+}
+
 export default omniPlugin<S>({
     id: "translator",
     name: "Translator",
@@ -41,15 +110,38 @@ export default omniPlugin<S>({
             const orig = originals.get(msg.id);
             if (orig) { setContent(msg, orig.content); originals.delete(msg.id); return; }
             try {
-                const { src, text } = await translateSafe(msg.content, s.target);
-                originals.set(msg.id, { channel_id: msg.channel_id, content: msg.content });
-                const tag = `-# 🌐 ${src} → ${s.target}`;
-                setContent(msg, s.immersive ? `${msg.content}\n${text}\n${tag}` : `${text}\n${tag}`);
+                if (!await translateOne(msg, s)) showToast(`Already in ${langName(s.target)}`);
             } catch (e) {
                 logger.error(e);
                 showToast("Translation failed", icon("Small"));
             }
         };
+
+        patches.push(addQuickActions(
+            { id: "tr-chat", order: 20, label: "🌐 Translate this chat", sub: () => `Last 30 messages → ${langName(s.target)}`, run: () => translateChat(s) },
+            { id: "tr-restore", order: 21, label: "↩️ Show originals", sub: "Undo translations in this chat", run: () => restoreChat() },
+            {
+                id: "tr-auto", order: 22, keepOpen: true,
+                label: () => `✍️ Auto-translate what I send: ${s.autoOut ? "ON" : "OFF"}`,
+                sub: () => `Sends in ${langName(s.outTarget)}`,
+                run: () => { s.autoOut = !s.autoOut; },
+            },
+            {
+                id: "tr-lang", order: 23, label: () => `🌍 Read in: ${langName(s.target)}`,
+                choices: () => LANGS.map(([k, n]) => ({ label: n, selected: s.target === k, run: () => { s.target = k; } })),
+            },
+            {
+                id: "tr-out", order: 24, label: () => `🌍 Send in: ${langName(s.outTarget)}`,
+                choices: () => LANGS.map(([k, n]) => ({ label: n, selected: s.outTarget === k, run: () => { s.outTarget = k; } })),
+            },
+        ));
+
+        // 🌐 next to the gift button in the chat bar (matched by name so it survives Discord updates).
+        patches.push(onJsx(/Gift/, (C, _props, ret) => {
+            const n = nameOf(C) ?? "";
+            if (!s.chatButton || !/ChatInput|Button/i.test(n) || /Icon$|Modal|Sheet|Badge|Premium|Nitro|Upsell/i.test(n)) return;
+            return <React.Fragment key={ret?.key ?? "omni-gift"}><ChatTranslateButton key="omni-tr" s={s} />{ret}</React.Fragment>;
+        }));
 
         patches.push(patchMessageSheet(message => {
             if (!message.content) return;
@@ -104,9 +196,15 @@ export default omniPlugin<S>({
                     <Input store={storage} k="target" title="Translate messages to (language code, e.g. en, fr)" placeholder="en" />
                     <Switch store={storage} k="immersive" label="Keep original text" sub="Show original above the translation" />
                 </Section>
+                <Section title="Buttons">
+                    <Switch store={storage} k="chatButton" label="🌐 button in the chat bar" sub="Tap: translate menu · Long-press: auto-translate on/off" />
+                </Section>
                 <Section title="Sending">
                     <Switch store={storage} k="autoOut" label="Auto-translate what I send" sub="Every message you send gets translated first" />
                     <Input store={storage} k="outTarget" title="Send messages in (language code)" placeholder="en" />
+                </Section>
+                <Section title="Debug (screenshot this if the 🌐 button is missing)">
+                    <RN.Text selectable style={{ color: "#949ba4", fontSize: 11, padding: 12 }}>{seenNames().join(", ") || "Open a chat first, then come back."}</RN.Text>
                 </Section>
             </Scroll>
         );

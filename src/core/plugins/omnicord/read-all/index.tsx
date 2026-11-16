@@ -1,4 +1,5 @@
 // Same mechanism as Vencord's ReadAllNotificationsButton: BULK_ACK.
+import { addQuickActions } from "../shared/quick";
 import { icon, Row, Scroll, Section, Switch } from "../shared/ui";
 import { findByProps, findByStoreName, FluxDispatcher, omniPlugin, registerCommand, showConfirmationAlert, showToast, useProxy } from "../vd";
 
@@ -32,6 +33,21 @@ function readAll(includeDMs: boolean) {
 }
 
 let unregister: (() => void) | undefined;
+let unquick: (() => void) | undefined;
+
+function runWithConfirm(storage: S) {
+    const go = () => {
+        const { count, mentions } = readAll(storage.includeDMs);
+        showToast(count ? `Marked ${count} channels read (${mentions} mentions)` : "Nothing unread", icon("check"));
+    };
+    if (!storage.confirm) return go();
+    showConfirmationAlert({
+        title: "Read all messages?",
+        content: `Mark every server channel${storage.includeDMs ? " and DM" : ""} as read.`,
+        confirmText: "Read all",
+        onConfirm: go,
+    });
+}
 
 export default omniPlugin<S>({
     id: "read-all",
@@ -39,6 +55,12 @@ export default omniPlugin<S>({
     description: "Mark every channel, thread (and optionally DM) as read: /readall or the button in settings",
     defaults,
     start(s) {
+        unquick = addQuickActions({
+            id: "read-all", order: 10,
+            label: "✅ Read all",
+            sub: () => `Mark every server channel${s.includeDMs ? " + DMs" : ""} as read`,
+            run: () => runWithConfirm(s),
+        });
         unregister = registerCommand({
             name: "readall",
             displayName: "readall",
@@ -54,26 +76,14 @@ export default omniPlugin<S>({
             },
         } as any);
     },
-    stop() { unregister?.(); },
+    stop() { unregister?.(); unquick?.(); },
     Settings({ storage }) {
         useProxy(storage);
-        const run = () => {
-            const go = () => {
-                const { count, mentions } = readAll(storage.includeDMs);
-                showToast(count ? `Marked ${count} channels read (${mentions} mentions)` : "Nothing unread", icon("check"));
-            };
-            if (!storage.confirm) return go();
-            showConfirmationAlert({
-                title: "Read all messages?",
-                content: `Mark every server channel${storage.includeDMs ? " and DM" : ""} as read.`,
-                confirmText: "Read all",
-                onConfirm: go,
-            });
-        };
+        const run = () => runWithConfirm(storage);
         return (
             <Scroll>
                 <Section>
-                    <Row label="✅ Read all now" sub="Also available as /readall" onPress={run} />
+                    <Row label="✅ Read all now" sub="Also: /readall or the Ω button" onPress={run} />
                 </Section>
                 <Section title="Options">
                     <Switch store={storage} k="includeDMs" label="Include DMs" />
