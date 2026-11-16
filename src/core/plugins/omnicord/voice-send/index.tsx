@@ -1,5 +1,5 @@
 // Idea from dziurwa14's customVoiceMessages: flag the upload as a voice message (flags 8192).
-import { Input, Scroll, Switch } from "../shared/ui";
+import { Input, Scroll, Section, Switch } from "../shared/ui";
 import { findByProps, instead, logger, omniPlugin, useProxy } from "../vd";
 
 const defaults = { enabled: true, fallbackSecs: "60" };
@@ -87,8 +87,10 @@ export default omniPlugin<S>({
         useProxy(storage);
         return (
             <Scroll>
-                <Switch store={storage} k="enabled" label="Send audio files as voice notes" sub="Pick an audio file in the attachment menu and send. .ogg/.opus work best." iconName="voice_bar_mute_off" />
-                <Input store={storage} k="fallbackSecs" title="Duration shown when it can't be read (seconds)" placeholder="60" />
+                <Section>
+                    <Switch store={storage} k="enabled" label="Send audio files as voice notes" sub="Pick an audio file in the attachment menu and send. .ogg/.opus work best." />
+                    <Input store={storage} k="fallbackSecs" title="Duration shown when it can't be read (seconds)" placeholder="60" />
+                </Section>
             </Scroll>
         );
     },

@@ -1,5 +1,5 @@
 // Same mechanism as Vencord's ReadAllNotificationsButton: BULK_ACK.
-import { FormDivider, FormRow, icon, Scroll, Switch } from "../shared/ui";
+import { icon, Row, Scroll, Section, Switch } from "../shared/ui";
 import { findByProps, findByStoreName, FluxDispatcher, omniPlugin, registerCommand, showConfirmationAlert, showToast, useProxy } from "../vd";
 
 const defaults = { includeDMs: false, confirm: true };
@@ -67,16 +67,18 @@ export default omniPlugin<S>({
                 title: "Read all messages?",
                 content: `Mark every server channel${storage.includeDMs ? " and DM" : ""} as read.`,
                 confirmText: "Read all",
-                cancelText: "Cancel",
                 onConfirm: go,
             });
         };
         return (
             <Scroll>
-                <FormRow label="Read all now" subLabel="Also available as /readall" leading={<FormRow.Icon source={icon("ic_check_all") ?? icon("check")} />} onPress={run} />
-                <FormDivider />
-                <Switch store={storage} k="includeDMs" label="Include DMs" iconName="ic_dm" />
-                <Switch store={storage} k="confirm" label="Ask before marking read" iconName="ic_warning_24px" />
+                <Section>
+                    <Row label="✅ Read all now" sub="Also available as /readall" onPress={run} />
+                </Section>
+                <Section title="Options">
+                    <Switch store={storage} k="includeDMs" label="Include DMs" />
+                    <Switch store={storage} k="confirm" label="Ask before marking read" />
+                </Section>
             </Scroll>
         );
     },

@@ -1,9 +1,9 @@
 import * as themes from "@lib/addons/themes";
 
-import { FormDivider, FormSection, icon, Scroll } from "../shared/ui";
-import { Forms, omniPlugin, ReactNative as RN, showToast, useProxy } from "../vd";
+import { SafeInput } from "@core/ui/components/SafeUI";
 
-const { FormRow, FormInput } = Forms;
+import { icon, Row, Scroll, Section } from "../shared/ui";
+import { omniPlugin, ReactNative as RN, showToast, useProxy } from "../vd";
 const THEME_ID = "equicord-mobile://custom-theme";
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
@@ -95,26 +95,27 @@ export default omniPlugin<S>({
         const p = storage.palette;
         return (
             <Scroll>
-                <FormSection title="Presets">
+                <Section title="Presets">
                     {Object.entries(PRESETS).map(([name, pal]) => (
-                        <FormRow key={name} label={name} trailing={<Swatch color={pal.accent} />}
+                        <Row key={name} label={name} trailing={<Swatch color={pal.accent} />}
                             onPress={() => { storage.palette = { ...pal }; apply(storage); }} />
                     ))}
-                </FormSection>
-                <FormDivider />
-                <FormSection title="Colors (hex, e.g. #1e1f22)">
+                </Section>
+                <Section title="Colors (hex, e.g. #1e1f22)">
                     {FIELDS.map(([k, label]) => (
-                        <RN.View key={k} style={{ flexDirection: "row", alignItems: "center", paddingRight: 16 }}>
+                        <RN.View key={k} style={{ flexDirection: "row", alignItems: "center", paddingRight: 14 }}>
                             <RN.View style={{ flex: 1 }}>
-                                <FormInput title={label} value={p[k]} placeholder="#000000"
+                                <SafeInput title={label} value={p[k]} placeholder="#000000"
                                     onChange={(v: string) => void (storage.palette = { ...storage.palette, [k]: v.trim() })} />
                             </RN.View>
                             <Swatch color={p[k]} />
                         </RN.View>
                     ))}
-                </FormSection>
-                <FormRow label="Apply" leading={<FormRow.Icon source={icon("check")} />} onPress={() => apply(storage)} />
-                <FormRow label="Reset to Discord default" leading={<FormRow.Icon source={icon("ic_message_retry")} />} onPress={() => reset(storage)} />
+                </Section>
+                <Section>
+                    <Row label="✅ Apply" onPress={() => apply(storage)} />
+                    <Row label="Reset to Discord default" danger onPress={() => reset(storage)} />
+                </Section>
             </Scroll>
         );
     },

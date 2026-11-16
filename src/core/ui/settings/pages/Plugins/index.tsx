@@ -1,211 +1,99 @@
-import { Strings } from "@core/i18n";
-import AddonPage from "@core/ui/components/AddonPage";
-import PluginCard from "@core/ui/settings/pages/Plugins/components/PluginCard";
+// Omnicord: plugins page using only React Native primitives (see SafeUI.tsx).
+import { SafeButton, SafeDivider, SafeInput, SafePage, SafeSection, SafeSwitchRow, SafeText, useSafeColors } from "@core/ui/components/SafeUI";
+import { UnifiedPluginModel } from "@core/ui/settings/pages/Plugins/models";
 import { VdPluginManager } from "@core/vendetta/plugins";
 import { useProxy } from "@core/vendetta/storage";
-import { isCorePlugin, isPluginInstalled, pluginSettings, registeredPlugins, corePluginInstances } from "@lib/addons/plugins";
-import { Author } from "@lib/addons/types";
-import { findAssetId } from "@lib/api/assets";
-import { settings } from "@lib/api/settings";
+import { isCorePlugin, isPluginInstalled, pluginSettings, registeredPlugins } from "@lib/addons/plugins";
 import { useObservable } from "@lib/api/storage";
-import { showToast } from "@lib/ui/toasts";
 import { BUNNY_PROXY_PREFIX, VD_PROXY_PREFIX } from "@lib/utils/constants";
-import { lazyDestructure } from "@lib/utils/lazy";
-import { findByProps } from "@metro";
 import { NavigationNative } from "@metro/common";
-import {
-  Button,
-  Card,
-  FlashList,
-  IconButton,
-  Text,
-} from "@metro/common/components";
-import { ComponentProps } from "react";
-import { View } from "react-native";
+import { useState } from "react";
+import { Alert, Pressable, Text, View } from "react-native";
 
-import { UnifiedPluginModel } from "./models";
 import unifyBunnyPlugin from "./models/bunny";
 import unifyVdPlugin from "./models/vendetta";
 
-const { openAlert } = lazyDestructure(() =>
-  findByProps("openAlert", "dismissAlert"),
-);
-const { AlertModal, AlertActions, AlertActionButton } = lazyDestructure(() =>
-  findByProps("AlertModal", "AlertActions"),
-);
+function PluginRow({ plugin, onChange }: { plugin: UnifiedPluginModel; onChange: () => void }) {
+    const navigation = NavigationNative.useNavigation();
+    const col = useSafeColors();
+    const Settings = plugin.getPluginSettingsComponent();
+    const enabled = plugin.isEnabled();
+    const authors = plugin.authors?.map(a => (typeof a === "string" ? a : a.name)).join(", ");
 
-interface PluginPageProps
-  extends Partial<ComponentProps<typeof AddonPage<UnifiedPluginModel>>> {
-  useItems: () => unknown[];
+    return (
+        <View>
+            <SafeSwitchRow
+                label={plugin.name}
+                sub={[plugin.description, authors && `by ${authors}`].filter(Boolean).join("\n")}
+                value={enabled}
+                onValueChange={v => {
+                    try { plugin.toggle(v); } catch (e) { Alert.alert("Couldn't toggle plugin", String(e)); }
+                    onChange();
+                }}
+            />
+            {enabled && Settings ? (
+                <Pressable onPress={() => navigation.push("PUPU_CUSTOM_PAGE", { title: plugin.name, render: Settings })}
+                    style={{ paddingHorizontal: 14, paddingBottom: 12, marginTop: -6 }}>
+                    <Text style={{ color: col.accent, fontWeight: "700" }}>⚙ Settings</Text>
+                </Pressable>
+            ) : null}
+        </View>
+    );
 }
 
-function PluginPage(props: PluginPageProps) {
-  const items = props.useItems();
+function List({ items, onChange }: { items: UnifiedPluginModel[]; onChange: () => void }) {
+    return <>{items.map((p, i) => (
+        <View key={p.id}>
+            {i > 0 && <SafeDivider />}
+            <PluginRow plugin={p} onChange={onChange} />
+        </View>
+    ))}</>;
+}
 
-  return (
-    <AddonPage<UnifiedPluginModel>
-      CardComponent={PluginCard}
-      title={Strings.PLUGINS}
-      searchKeywords={[
-        "name",
-        "description",
-        (p) =>
-          p.authors
-            ?.map((a: Author | string) => (typeof a === "string" ? a : a.name))
-            .join() || "",
-      ]}
-      sortOptions={{
-        "Name (A-Z)": (a, b) => a.name.localeCompare(b.name),
-        "Name (Z-A)": (a, b) => b.name.localeCompare(a.name),
-      }}
-      safeModeHint={{ message: Strings.SAFE_MODE_NOTICE_PLUGINS }}
-      items={items}
-      {...props}
-    />
-  );
+function Installer({ onDone }: { onDone: () => void }) {
+    const [url, setUrl] = useState("");
+    const install = async () => {
+        const u = url.trim();
+        if (!u) return;
+        const go = () => VdPluginManager.installPlugin(u)
+            .then(() => { setUrl(""); onDone(); Alert.alert("Installed", u); })
+            .catch((e: any) => Alert.alert("Install failed", e instanceof Error ? e.message : String(e)));
+        if (u.startsWith(VD_PROXY_PREFIX) || u.startsWith(BUNNY_PROXY_PREFIX)) return go();
+        Alert.alert("Unproxied plugin", "This plugin's code isn't reviewed. Only install it if you trust the source.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Install", onPress: go },
+        ]);
+    };
+    return (
+        <SafeSection title="Install a plugin">
+            <SafeInput title="Plugin URL (Vendetta/Bunny/Kettu)" value={url} onChange={setUrl} placeholder="https://…/plugin-name/" />
+            <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}><SafeButton text="Install" onPress={install} /></View>
+        </SafeSection>
+    );
 }
 
 export default function Plugins() {
-  useProxy(settings);
-  const navigation = NavigationNative.useNavigation();
+    useProxy(VdPluginManager.plugins);
+    useObservable([pluginSettings]);
+    const [, bump] = useState(0);
+    const refresh = () => bump(n => n + 1);
 
-  return (
-    <PluginPage
-      useItems={() => {
-        useProxy(VdPluginManager.plugins);
-        useObservable([pluginSettings]);
+    const all = [...registeredPlugins.values()].filter(p => isPluginInstalled(p.id));
+    const omni = all.filter(p => p.id.startsWith("omnicord.")).map(unifyBunnyPlugin);
+    const core = all.filter(p => isCorePlugin(p.id) && !p.id.startsWith("omnicord.")).map(unifyBunnyPlugin);
+    const external = [
+        ...Object.values(VdPluginManager.plugins).map(unifyVdPlugin),
+        ...all.filter(p => !isCorePlugin(p.id)).map(unifyBunnyPlugin),
+    ];
+    const byName = (a: UnifiedPluginModel, b: UnifiedPluginModel) => a.name.localeCompare(b.name);
 
-            const corePlugins = [...registeredPlugins.values()].filter(p => isPluginInstalled(p.id) && isCorePlugin(p.id)).map(unifyBunnyPlugin);
-            const vdPlugins = Object.values(VdPluginManager.plugins).map(unifyVdPlugin);
-            const bnPlugins = [...registeredPlugins.values()].filter(p => isPluginInstalled(p.id) && !isCorePlugin(p.id)).map(unifyBunnyPlugin);
-
-            return [...corePlugins, ...vdPlugins, ...bnPlugins];
-        }}
-        ListHeaderComponent={() => {
-            const unproxiedPlugins = Object.values(VdPluginManager.plugins).filter(p => !p.id.startsWith(VD_PROXY_PREFIX) && !p.id.startsWith(BUNNY_PROXY_PREFIX));
-            if (!unproxiedPlugins.length) return null;
-
-        return (
-          <View style={{ marginVertical: 12, marginHorizontal: 10 }}>
-            <Card border="strong">
-              <View
-                style={{
-                  flex: 1,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  flexDirection: "row",
-                }}
-              >
-                <View style={{ gap: 6, flexShrink: 1 }}>
-                  <Text variant="heading-md/bold">Unproxied Plugins Found</Text>
-                  <Text variant="text-sm/medium" color="text-muted">
-                    Plugins installed from unproxied sources may run unverified
-                    code in this app without your awareness.
-                  </Text>
-                </View>
-                <View style={{ marginLeft: "auto" }}>
-                  <IconButton
-                    size="sm"
-                    variant="secondary"
-                    icon={findAssetId("CircleInformationIcon-primary")}
-                    style={{ marginLeft: 8 }}
-                    onPress={() => {
-                      navigation.push("PUPU_CUSTOM_PAGE", {
-                        title: "Unproxied Plugins",
-                        render: () => {
-                          return (
-                            <FlashList
-                              data={unproxiedPlugins}
-                              contentContainerStyle={{ padding: 8 }}
-                              ItemSeparatorComponent={() => (
-                                <View style={{ height: 8 }} />
-                              )}
-                              renderItem={({ item: p }: any) => (
-                                <Card>
-                                  <Text variant="heading-md/semibold">
-                                    {p.id}
-                                  </Text>
-                                </Card>
-                              )}
-                            />
-                          );
-                        },
-                      });
-                    }}
-                  />
-                </View>
-              </View>
-            </Card>
-          </View>
-        );
-      }}
-      installAction={{
-        label: "Install a plugin",
-        fetchFn: async (url: string) => {
-          if (
-            !url.startsWith(VD_PROXY_PREFIX) &&
-            !url.startsWith(BUNNY_PROXY_PREFIX) &&
-            !settings.developerSettings
-          ) {
-            openAlert(
-              "bunny-plugin-unproxied-confirmation",
-              <AlertModal
-                title="Hold On!"
-                content="You're trying to install a plugin from an unproxied external source. This means you're trusting the creator to run their code in this app without your knowledge. Are you sure you want to continue?"
-                extraContent={
-                  <Card>
-                    <Text variant="text-md/bold">{url}</Text>
-                  </Card>
-                }
-                actions={
-                  <AlertActions>
-                    <AlertActionButton
-                      text="Continue"
-                      variant="primary"
-                      onPress={() => {
-                        VdPluginManager.installPlugin(url)
-                          .then(() =>
-                            showToast(
-                              Strings.TOASTS_INSTALLED_PLUGIN,
-                              findAssetId("Check"),
-                            ),
-                          )
-                          .catch((e) =>
-                            openAlert(
-                              "bunny-plugin-install-failed",
-                              <AlertModal
-                                title="Install Failed"
-                                content={`Unable to install plugin from '${url}':`}
-                                extraContent={
-                                  <Card>
-                                    <Text variant="text-md/normal">
-                                      {e instanceof Error
-                                        ? e.message
-                                        : String(e)}
-                                    </Text>
-                                  </Card>
-                                }
-                                actions={
-                                  <AlertActionButton
-                                    text="Okay"
-                                    variant="primary"
-                                  />
-                                }
-                              />,
-                            ),
-                          );
-                      }}
-                    />
-                    <AlertActionButton text="Cancel" variant="secondary" />
-                  </AlertActions>
-                }
-              />,
-            );
-          } else {
-            return await VdPluginManager.installPlugin(url);
-          }
-        },
-      }}
-    />
-  );
+    return (
+        <SafePage>
+            <SafeSection title="Omnicord plugins"><List items={omni.sort(byName)} onChange={refresh} /></SafeSection>
+            {external.length ? <SafeSection title="Installed plugins"><List items={external.sort(byName)} onChange={refresh} /></SafeSection> : null}
+            <SafeSection title="Built-in (Kettu)"><List items={core.sort(byName)} onChange={refresh} /></SafeSection>
+            <Installer onDone={refresh} />
+            <SafeText muted style={{ textAlign: "center", fontSize: 12 }}>Turn a plugin on to see its settings.</SafeText>
+        </SafePage>
+    );
 }
