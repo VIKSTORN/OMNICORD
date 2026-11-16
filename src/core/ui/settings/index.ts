@@ -1,4 +1,4 @@
-import PupuIcon from "@assets/icons/kettu.png";
+import PupuIcon from "@assets/icons/omnicord.png";
 import { Strings } from "@core/i18n";
 import { useProxy } from "@core/vendetta/storage";
 import { findAssetId } from "@lib/api/assets";
@@ -12,7 +12,7 @@ export { PupuIcon };
 export default function initSettings() {
     
     registerSection({
-        name: "Kettu",
+        name: "Omnicord",
         items: [
             {
                 key: "KETTU",

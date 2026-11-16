@@ -44,8 +44,8 @@ export function patchTabsUI(unpatches: (() => void | boolean)[]) {
             ...rendererConfigValue,
             VendettaCustomPage: {
                 type: "route",
-                title: () => "Kettu",
-                useTitle: () => "Kettu",
+                title: () => "Omnicord",
+                useTitle: () => "Omnicord",
                 screen: {
                     route: "VendettaCustomPage",
                     getComponent: () => CustomPageRenderer
@@ -53,8 +53,8 @@ export function patchTabsUI(unpatches: (() => void | boolean)[]) {
             },
             PUPU_CUSTOM_PAGE: {
                 type: "route",
-                title: () => "Kettu",
-                useTitle: () => "Kettu",
+                title: () => "Omnicord",
+                useTitle: () => "Omnicord",
                 screen: {
                     route: "PUPU_CUSTOM_PAGE",
                     getComponent: () => CustomPageRenderer
@@ -62,8 +62,8 @@ export function patchTabsUI(unpatches: (() => void | boolean)[]) {
             },
             BUNNY_CUSTOM_PAGE: {
                 type: "route",
-                title: () => "Kettu",
-                useTitle: () => "Kettu",
+                title: () => "Omnicord",
+                useTitle: () => "Omnicord",
                 screen: {
                     route: "BUNNY_CUSTOM_PAGE",
                     getComponent: () => CustomPageRenderer

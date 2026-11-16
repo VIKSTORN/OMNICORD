@@ -18,9 +18,9 @@ async function initializeKettu() {
 
         console.log(stack ?? e?.toString?.() ?? e);
         alert([
-            "Failed to load Kettu!\n",
+            "Failed to load Omnicord!\n",
             `Build Number: ${ClientInfoManager.getConstants().Build}`,
-            `Kettu: ${version}`,
+            `Omnicord: ${version}`,
             stack || e?.toString?.(),
         ].join("\n"));
     }
