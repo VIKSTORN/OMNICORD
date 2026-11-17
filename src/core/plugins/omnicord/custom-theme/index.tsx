@@ -58,7 +58,9 @@ function classify(k: string, p: Palette): string | undefined {
     if (!isBg(k) && /^(TEXT|HEADER|INTERACTIVE|CHANNELS|ICON)/.test(k))
         return /MUTED|SECONDARY|TERTIARY|PLACEHOLDER|SUBTLE|DISABLED|FAINT|LOW/.test(k) ? p.muted : /HEADER_PRIMARY|STRONG|HIGH/.test(k) ? p.header : p.text;
     if (/^(ICON|TEXT|HEADER|INTERACTIVE|CHANNELS)/.test(k)) return; // icon/text tiles etc: keep Discord's
-    if (isBg(k) || /CARD|CHAT_|MODAL|SHEET|HOME_|NAV|TAB_BAR|INPUT/.test(k)) {
+    // Only real surfaces: anything naming an icon/text/glyph keeps Discord's color (else chat-bar/emoji icons go black).
+    if (/ICON|TEXT|GLYPH|FOREGROUND|STROKE|EMOJI|LABEL|TINT|LINE|PLACEHOLDER|THUMB|KNOB/.test(k)) return;
+    if (isBg(k)) {
         if (/TERTIARY|FLOATING|BACKDROP|LOWEST|DEEP|NAV|TAB_BAR|MOBILE_SECONDARY|SECONDARY_ALT/.test(k)) return p.bg3;
         if (/SECONDARY|RAISED|OVERLAY|CARD|INPUT|MOBILE_PRIMARY|HIGHER|SURFACE|MODAL|SHEET/.test(k)) return p.bg2;
         return p.bg1;
