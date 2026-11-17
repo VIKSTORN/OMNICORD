@@ -9,6 +9,7 @@ import initColors from "./colors";
 import { applyAndroidAlphaKeys, normalizeToHex } from "./colors/parser";
 import { colorsPref } from "./colors/preferences";
 import { VendettaThemeManifest } from "./colors/types";
+import { themeHooks } from "./colors/omniEngine";
 import { updateBunnyColor } from "./colors/updater";
 
 export interface VdThemeInfo {
@@ -106,6 +107,8 @@ export async function installTheme(url: string) {
 
 export function selectTheme(theme: VdThemeInfo | null, write = true) {
     if (theme) theme.selected = true;
+    // Omnicord: a Themes-page theme replaces Custom Theme (they share the color engine).
+    if (theme && !String(theme.id).startsWith("equicord-mobile://")) themeHooks.onExternalSelect?.();
     Object.keys(themes).forEach(
         k => themes[k].selected = themes[k].id === theme?.id
     );

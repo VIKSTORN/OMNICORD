@@ -9,7 +9,7 @@ import { _colorRef } from "@lib/addons/themes/colors/updater";
 import { getStoredTheme } from "@lib/api/native/loader";
 
 import { addQuickActions } from "../shared/quick";
-import { installEngine, rawNames, setColors, tokenNames, uninstallEngine } from "./engine";
+import { colorOwner, installEngine, rawNames, setColors, themeHooks, tokenNames } from "@lib/addons/themes/colors/omniEngine";
 
 import { icon, Row, Scroll, Section } from "../shared/ui";
 import { findByProps, logger, omniPlugin, ReactNative as RN, showToast, useProxy } from "../vd";
@@ -127,7 +127,9 @@ function apply(st: S, notify = true) {
     const data = buildTheme(p, st.bg, st.deep);
     dropLegacy();
     if (!installEngine()) return void showToast("Theme engine not supported on this Discord version");
-    setColors(flat(data), data.rawColors);
+    // Custom Theme replaces any Themes-page theme.
+    for (const k of Object.keys(themes.themes)) if (themes.themes[k]?.selected) themes.themes[k].selected = false;
+    setColors(flat(data), data.rawColors, "custom");
     // Persist to the loader's theme file: read synchronously on next boot (before Discord draws),
     // also used by the native side for the chat list.
     themes.writeThemeToNative({ id: THEME_ID, selected: true, data: { ...data, omnicord: { palette: p, bg: st.bg, deep: st.deep } } } as any).catch((e: any) => logger.error(e));
@@ -163,7 +165,7 @@ try {
         // Rebuild from the saved palette so mapping fixes in new releases apply immediately.
         const o = saved.data.omnicord;
         const data = o?.palette ? buildTheme(o.palette, o.bg, o.deep) : saved.data;
-        setColors(flat(data), data.rawColors ?? null);
+        setColors(flat(data), data.rawColors ?? null, "custom");
         setBackground(data);
     }
 } catch (e) { logger.error("custom theme boot apply failed", e); }
@@ -179,9 +181,12 @@ function dropLegacy() {
 
 function reset(st: S, keepFlag = false) {
     dropLegacy();
-    setColors(null, null);
-    themes.writeThemeToNative({}).catch(() => { });
-    setBackground(null);
+    // Only clear colors we own; never wipe a theme picked on the Themes page.
+    if (colorOwner() === "custom") {
+        setColors(null, null);
+        setBackground(null);
+        themes.writeThemeToNative({}).catch(() => { });
+    }
     if (!keepFlag) st.enabled = false;
 }
 
@@ -221,6 +226,7 @@ export default omniPlugin<S>({
     defaults,
     start(st) {
         current = st;
+        themeHooks.onExternalSelect = () => { st.enabled = false; };
         if (st.enabled) apply(st, false); else dropLegacy();
         const same = (a: Palette) => FIELDS.every(([k]) => a[k]?.toLowerCase() === st.palette[k]?.toLowerCase());
         unquick = addQuickActions({
@@ -236,7 +242,7 @@ export default omniPlugin<S>({
             ],
         });
     },
-    stop() { unquick?.(); if (current) reset(current, true); uninstallEngine(); },
+    stop() { unquick?.(); themeHooks.onExternalSelect = undefined; if (current) reset(current, true); },
     Settings({ storage }) {
         useProxy(storage);
         const p = storage.palette;
