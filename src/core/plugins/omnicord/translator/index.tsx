@@ -3,7 +3,7 @@ import { hideSheet, makeRow, patchMessageSheet } from "../shared/actionSheet";
 import { nameOf, onJsx, seenNames } from "../shared/jsx";
 import { addQuickActions, openQuickMenu } from "../shared/quick";
 import { icon, Input, Scroll, Section, Switch } from "../shared/ui";
-import { findByProps, findByStoreName, FluxDispatcher, instead, logger, omniPlugin, React, ReactNative as RN, registerCommand, showToast, useProxy } from "../vd";
+import { before, findByProps, findByStoreName, FluxDispatcher, instead, logger, omniPlugin, React, ReactNative as RN, registerCommand, showToast, useProxy } from "../vd";
 import { translateSafe } from "./api";
 
 const defaults = {
@@ -21,14 +21,24 @@ let patches: (() => void)[] = [];
 const MessageStore = () => findByStoreName("MessageStore");
 const ChannelStore = () => findByStoreName("ChannelStore");
 
+// Full message in the update: a partial one (no author / stickers / embeds) is treated by Discord as an
+// embed-only update on received messages, so the text didn't change or couldn't be restored.
 function setContent(msg: { id: string; channel_id: string; }, content: string) {
+    const rec = MessageStore().getMessage(msg.channel_id, msg.id);
+    const base = rec ? (rec.toJS?.() ?? { ...rec }) : { id: msg.id, channel_id: msg.channel_id };
     FluxDispatcher.dispatch({
         type: "MESSAGE_UPDATE",
-        message: { id: msg.id, channel_id: msg.channel_id, guild_id: ChannelStore().getChannel(msg.channel_id)?.guild_id, content },
+        message: { ...base, guild_id: ChannelStore().getChannel(msg.channel_id)?.guild_id, content },
         log_edit: false,
+        otherPluginBypass: true,
         __eqm_internal: true,
     } as any);
 }
+
+// Only real, already-sent text messages (skips stickers-only, pending sends, failed sends, system rows).
+const translatable = (m: any) => typeof m?.content === "string" && m.content.trim()
+    && !m.content.includes("\n-# 🌐 ") && m.state !== "SENDING" && m.state !== "SEND_FAILED"
+    && m.author?.id !== "1" && !m.__eqm_deleted;
 
 const LANGS: [string, string][] = [
     ["en", "English"], ["fr", "Français"], ["es", "Español"], ["de", "Deutsch"], ["it", "Italiano"], ["pt", "Português"],
@@ -38,6 +48,7 @@ const LANGS: [string, string][] = [
 const langName = (c: string) => LANGS.find(([k]) => k === c)?.[1] ?? c;
 
 async function translateOne(msg: any, s: S) {
+    if (!translatable(msg)) return false;
     const { src, text } = await translateSafe(msg.content, s.target);
     if (!text || src === s.target || text.trim() === msg.content.trim()) return false;
     originals.set(msg.id, { channel_id: msg.channel_id, content: msg.content });
@@ -57,7 +68,7 @@ function recentMessages(channelId: string, n: number): any[] {
 async function translateChat(s: S) {
     const cid = currentChannel();
     if (!cid) return showToast("Open a chat first");
-    const msgs = recentMessages(cid, 30).filter(m => m?.content?.trim() && !originals.has(m.id));
+    const msgs = recentMessages(cid, 30).filter(m => translatable(m) && !originals.has(m.id));
     if (!msgs.length) return showToast("Nothing to translate");
     showToast(`Translating ${msgs.length} messages…`);
     let done = 0;
@@ -108,15 +119,20 @@ export default omniPlugin<S>({
         const toggle = async (message: any) => {
             hideSheet();
             const msg = MessageStore().getMessage(message.channel_id, message.id) ?? message;
-            const orig = originals.get(msg.id);
-            if (orig) { setContent(msg, orig.content); originals.delete(msg.id); return; }
+            const orig = originals.get(message.id);
+            if (orig) { setContent({ id: message.id, channel_id: orig.channel_id }, orig.content); originals.delete(message.id); return; }
             try {
-                if (!await translateOne(msg, s)) showToast(`Already in ${langName(s.target)}`);
+                if (!await translateOne(msg, s)) showToast(translatable(msg) ? `Already in ${langName(s.target)}` : "Nothing to translate");
             } catch (e) {
                 logger.error(e);
                 showToast("Translation failed", icon("Small"));
             }
         };
+
+        patches.push(before("dispatch", FluxDispatcher, ([ev]: any[]) => {
+            if (ev?.type === "MESSAGE_UPDATE" && !ev.__eqm_internal && ev.log_edit !== false
+                && typeof ev.message?.content === "string" && originals.has(ev.message.id)) originals.delete(ev.message.id);
+        }));
 
         patches.push(addQuickActions(
             { id: "tr-chat", order: 20, icon: ["LanguageIcon", "GlobeEarthIcon", "ic_locale_24px"], label: "Translate this chat", sub: () => `Last 30 messages → ${langName(s.target)}`, run: () => translateChat(s) },
@@ -152,10 +168,11 @@ export default omniPlugin<S>({
 
         patches.push(instead("sendMessage", MessageActions, (args: any[], orig: any) => {
             const msg = args[1];
-            if (!s.autoOut || !msg?.content?.trim()) return orig(...args);
+            const extra = args[3] ?? {};
+            if (!s.autoOut || !msg?.content?.trim() || extra.stickerIds?.length || msg.sticker_ids?.length || extra.poll) return orig(...args);
             return translateSafe(msg.content, s.outTarget)
                 .then(r => { if (r.text) msg.content = r.text; }, e => logger.error(e))
-                .then(() => orig(...args));
+                .then(() => orig(...args), () => orig(...args));
         }));
 
         patches.push(registerCommand({
