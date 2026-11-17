@@ -1,6 +1,8 @@
 // Idea from dziurwa14's customVoiceMessages: flag the upload as a voice message (flags 8192).
-import { Input, Scroll, Section, Switch } from "../shared/ui";
-import { findByProps, instead, logger, omniPlugin, useProxy } from "../vd";
+import { pickFile } from "../shared/pick";
+import { addQuickActions } from "../shared/quick";
+import { Input, Row, Scroll, Section, Switch } from "../shared/ui";
+import { findByProps, findByStoreName, instead, logger, omniPlugin, showToast, useProxy } from "../vd";
 
 const defaults = { enabled: true, fallbackSecs: "60" };
 type S = typeof defaults;
@@ -55,6 +57,37 @@ async function analyse(uri: string) {
 }
 
 let unpatch: (() => void) | undefined;
+let unquick: (() => void) | undefined;
+
+/** Pick an audio file and send it to the open chat as a voice message. */
+async function pickAndSend(s: S) {
+    const channelId = findByStoreName("SelectedChannelStore")?.getChannelId?.();
+    if (!channelId) return showToast("Open a chat first");
+    let f;
+    try { f = await pickFile("audio"); } catch (e: any) { if (!String(e).toLowerCase().includes("cancel")) showToast(`Picker failed: ${e}`); return; }
+    if (!f?.uri) return;
+    const { secs, wave } = await analyse(f.uri);
+    const filename = (f.name ?? "voice-message.ogg").replace(/\.[^.]+$/, "") + ".ogg";
+    const durationSecs = secs ?? (Number(s.fallbackSecs) || 60);
+    const item = {
+        uri: f.uri, originalUri: f.uri, filename, mimeType: "audio/ogg", platform: 1,
+        waveform: wave ?? DEFAULT_WAVE, durationSecs, size: f.size,
+    };
+    try {
+        showToast("Sending voice message…");
+        await findByProps("uploadLocalFiles").uploadLocalFiles({
+            channelId,
+            items: [{ ...item, item, id: String(Date.now()), isImage: false, isVideo: false, channelId }],
+            token: undefined,
+            parsedMessage: { content: "", tts: false, invalidEmojis: [], validNonShortcutEmojis: [] },
+            flags: VOICE_FLAG,
+        });
+    } catch (e) {
+        logger.error("voice-send direct upload failed", e);
+        showToast("Couldn't send directly: use + → Files, voice-note mode is on");
+        s.enabled = true;
+    }
+}
 
 export default omniPlugin<S>({
     id: "voice-send",
@@ -62,6 +95,10 @@ export default omniPlugin<S>({
     description: "Audio files you upload are sent as voice messages",
     defaults,
     start(s) {
+        unquick = addQuickActions(
+            { id: "voice-send", order: 30, icon: ["MicrophoneIcon", "ic_mic_24px", "ic_voice_message"], label: "Send audio as voice message", sub: "Pick an audio file, sent to this chat", run: () => pickAndSend(s) },
+            { id: "voice-mode", order: 31, keepOpen: true, icon: ["SoundboardIcon", "ic_audio", "MusicIcon"], label: "Voice-note mode", sub: "Audio files from + → Files go as voice messages", toggled: () => s.enabled, run: () => { s.enabled = !s.enabled; } },
+        );
         const Uploader = findByProps("uploadLocalFiles");
         unpatch = instead("uploadLocalFiles", Uploader, (args: any[], orig: any) => {
             const opts = args[0];
@@ -82,11 +119,14 @@ export default omniPlugin<S>({
             });
         });
     },
-    stop() { unpatch?.(); },
+    stop() { unpatch?.(); unquick?.(); },
     Settings({ storage }) {
         useProxy(storage);
         return (
             <Scroll>
+                <Section>
+                    <Row label="Send an audio file as voice message" sub="Also in the Ω menu" onPress={() => pickAndSend(storage)} />
+                </Section>
                 <Section>
                     <Switch store={storage} k="enabled" label="Send audio files as voice notes" sub="Pick an audio file in the attachment menu and send. .ogg/.opus work best." />
                     <Input store={storage} k="fallbackSecs" title="Duration shown when it can't be read (seconds)" placeholder="60" />
