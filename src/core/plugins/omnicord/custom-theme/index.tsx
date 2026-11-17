@@ -4,7 +4,8 @@ import chroma from "chroma-js";
 
 import { SafeInput, SafeSwitchRow } from "@core/ui/components/SafeUI";
 
-import { updateBunnyColor } from "@lib/addons/themes/colors/updater";
+import { parseColorManifest } from "@lib/addons/themes/colors/parser";
+import { _colorRef } from "@lib/addons/themes/colors/updater";
 import { getStoredTheme } from "@lib/api/native/loader";
 
 import { addQuickActions } from "../shared/quick";
@@ -129,9 +130,21 @@ function apply(st: S, notify = true) {
     // also used by the native side for the chat list.
     themes.writeThemeToNative({ id: THEME_ID, selected: true, data: { ...data, omnicord: { palette: p, bg: st.bg, deep: st.deep } } } as any).catch((e: any) => logger.error(e));
     // Background picture goes through Kettu's chat-background patch (no theme switch).
-    try { updateBunnyColor(data.background ? data as any : null, { update: false }); } catch (e) { logger.error(e); }
+    setBackground(data);
     st.enabled = true;
     notify && showToast("Theme applied (restart Discord if some parts didn't change)", icon("check"));
+}
+
+/**
+ * Feed the chat-background patch directly. (updateBunnyColor touched ThemeStore, which isn't ready yet
+ * when plugins start at boot, so it threw and the picture was lost after every restart.)
+ */
+function setBackground(data: any) {
+    try {
+        _colorRef.current = data?.background?.url
+            ? parseColorManifest(JSON.parse(JSON.stringify({ ...data, rawColors: {} })) as any)
+            : null;
+    } catch (e) { logger.error("background apply failed", e); }
 }
 
 const flat = (data: { semanticColors?: Record<string, string[]>; }) => {
@@ -149,6 +162,7 @@ try {
         const o = saved.data.omnicord;
         const data = o?.palette ? buildTheme(o.palette, o.bg, o.deep) : saved.data;
         setColors(flat(data), data.rawColors ?? null);
+        setBackground(data);
     }
 } catch (e) { logger.error("custom theme boot apply failed", e); }
 
@@ -165,7 +179,7 @@ function reset(st: S, keepFlag = false) {
     dropLegacy();
     setColors(null, null);
     themes.writeThemeToNative({}).catch(() => { });
-    try { updateBunnyColor(null, { update: false }); } catch { }
+    setBackground(null);
     if (!keepFlag) st.enabled = false;
 }
 
