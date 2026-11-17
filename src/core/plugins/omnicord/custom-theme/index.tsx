@@ -7,6 +7,7 @@ import { SafeInput, SafeSwitchRow } from "@core/ui/components/SafeUI";
 import { parseColorManifest } from "@lib/addons/themes/colors/parser";
 import { _colorRef } from "@lib/addons/themes/colors/updater";
 import { getStoredTheme } from "@lib/api/native/loader";
+import { NativeFileModule } from "@lib/api/native/modules";
 
 import { addQuickActions } from "../shared/quick";
 import { colorOwner, installEngine, rawNames, setColors, themeHooks, tokenNames } from "@lib/addons/themes/colors/omniEngine";
@@ -194,6 +195,47 @@ function Swatch({ color }: { color: string }) {
 let current: S | undefined;
 let unquick: (() => void) | undefined;
 
+/** Read any uri (content://, file://, https://) as base64. */
+async function readBase64(uri: string): Promise<string> {
+    const res = await fetch(uri);
+    try {
+        const blob = await res.blob();
+        const dataUrl: string = await new Promise((ok, fail) => {
+            const r = new FileReader();
+            r.onload = () => ok(String(r.result));
+            r.onerror = () => fail(r.error ?? new Error("read failed"));
+            r.readAsDataURL(blob);
+        });
+        const b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        if (b64) return b64;
+    } catch { }
+    const res2 = await fetch(uri);
+    return Buffer.from(await res2.arrayBuffer()).toString("base64");
+}
+
+/** Copy the picture into Discord's own app folder and return a file:// uri that survives restarts. */
+async function saveBackgroundLocally(uri: string, previous?: string): Promise<string> {
+    const ext = (/\.(png|jpe?g|gif|webp)(\?|$)/i.exec(uri)?.[1] ?? "png").toLowerCase();
+    const rel = `pyoncord/omnicord/background-${Date.now()}.${ext}`;
+    await NativeFileModule.writeFile("documents", rel, await readBase64(uri), "base64");
+    const dir = NativeFileModule.getConstants().DocumentsDirPath;
+    if (previous?.startsWith(`file://${dir}/pyoncord/omnicord/`)) {
+        NativeFileModule.removeFile?.("documents", previous.slice(`file://${dir}/`.length))?.catch?.(() => { });
+    }
+    return `file://${dir}/${rel}`;
+}
+
+async function setPicture(storage: S, uri: string) {
+    showToast("Saving picture…");
+    let local = uri;
+    try { local = await saveBackgroundLocally(uri, storage.bg.url); } catch (e) {
+        logger.error("background copy failed", e);
+        showToast("Couldn't copy the picture into the app, using it directly");
+    }
+    storage.bg = { ...storage.bg, url: local, source: uri } as any;
+    apply(storage);
+}
+
 async function pickImage(): Promise<string | undefined> {
     const DP = findByProps("pickSingle") ?? findByProps("pick", "types");
     if (DP?.pickSingle) { const r = await DP.pickSingle({ type: ["image/*"], copyTo: "documentDirectory" }); return r?.fileCopyUri ?? r?.uri; }
@@ -233,6 +275,8 @@ export default omniPlugin<S>({
             }
         };
         if (st.enabled) apply(st, false);
+        // Older releases stored the gallery uri itself: copy it into the app folder while it's still readable.
+        if (/^(content|https?):/i.test(st.bg?.url ?? "")) setPicture(st, st.bg.url).catch(e => logger.error(e));
         const same = (a: Palette) => FIELDS.every(([k]) => a[k]?.toLowerCase() === st.palette[k]?.toLowerCase());
         unquick = addQuickActions({
             id: "theme", order: 40,
@@ -265,7 +309,7 @@ export default omniPlugin<S>({
                     <Row label="📁 Pick from gallery" onPress={async () => {
                         try {
                             const uri = await pickImage();
-                            if (uri) { storage.bg = { ...storage.bg, url: uri }; apply(storage); }
+                            if (uri) await setPicture(storage, uri);
                         } catch (e: any) { if (!String(e).includes("cancel")) showToast(`Picker failed: ${e}`); }
                     }} />
                     {storage.bg.url ? <RN.Image source={{ uri: storage.bg.url }} resizeMode="cover" style={{ height: 120, marginHorizontal: 14, marginBottom: 8, borderRadius: 8 }} /> : null}
@@ -273,7 +317,7 @@ export default omniPlugin<S>({
                         onChange={d => void (storage.bg = { ...storage.bg, alpha: Math.round(Math.max(0.1, Math.min(1, (storage.bg.alpha ?? 0.6) + d * 0.1)) * 10) / 10 })} />
                     <Stepper label="Blur" value={String(storage.bg.blur ?? 0)}
                         onChange={d => void (storage.bg = { ...storage.bg, blur: Math.max(0, Math.min(25, (storage.bg.blur ?? 0) + d * 2)) })} />
-                    <Row label="✅ Apply background" onPress={() => apply(storage)} />
+                    <Row label="✅ Apply background" sub="Web pictures are downloaded into the app so they load offline" onPress={() => /^https?:/i.test(storage.bg.url) ? setPicture(storage, storage.bg.url) : apply(storage)} />
                     {storage.bg.url ? <Row label="Remove background" danger onPress={() => { storage.bg = { ...storage.bg, url: "" }; apply(storage); }} /> : null}
                 </Section>
                 <Section title="Coverage">
