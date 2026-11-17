@@ -2,6 +2,7 @@ package dev.beefers.vendetta.manager.installer.step.patching
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color
+import com.github.diamondminer88.zip.ZipReader
 import com.github.diamondminer88.zip.ZipWriter
 import dev.beefers.vendetta.manager.R
 import dev.beefers.vendetta.manager.domain.manager.PreferenceManager
@@ -9,9 +10,11 @@ import dev.beefers.vendetta.manager.installer.step.Step
 import dev.beefers.vendetta.manager.installer.step.StepGroup
 import dev.beefers.vendetta.manager.installer.step.StepRunner
 import dev.beefers.vendetta.manager.installer.step.download.DownloadBaseStep
+import dev.beefers.vendetta.manager.installer.step.download.DownloadResourcesStep
 import dev.beefers.vendetta.manager.installer.util.ArscUtil
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.addColorResource
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.addFileResource
+import dev.beefers.vendetta.manager.installer.util.ArscUtil.getAllResourceFileNames
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getMainArscChunk
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getPackageChunk
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getResourceFileName
@@ -73,6 +76,26 @@ class ReplaceIconStep : Step() {
                 backgroundColor = backgroundColor,
                 foregroundIcon = foregroundIcon,
             )
+        }
+
+        // Legacy (non-adaptive) PNG/WebP icons: shown by installers, some launchers and Android < 8.
+        // They live in the base APK or the density split, so overwrite them wherever they are.
+        val iconBytes = context.assets.open("omnicord_icon.png").use { it.readBytes() }
+        val apks = listOfNotNull(
+            baseApk,
+            runCatching { runner.getCompletedStep<DownloadResourcesStep>().workingCopy }.getOrNull(),
+        )
+        val legacy = (arsc.getMainArscChunk().getAllResourceFileNames(iconRscIds.squareIcon) +
+            arsc.getMainArscChunk().getAllResourceFileNames(iconRscIds.roundIcon))
+            .filter { it.endsWith(".png") || it.endsWith(".webp") }
+            .distinct()
+        for (path in legacy) {
+            val target = apks.firstOrNull { apk -> ZipReader(apk).use { it.openEntry(path) != null } } ?: continue
+            runner.logger.i("Replacing legacy icon $path in ${target.name}")
+            ZipWriter(target, /* append = */ true).use {
+                it.deleteEntry(path)
+                it.writeEntry(path, iconBytes)
+            }
         }
 
         runner.logger.i("Writing and compiling resources.arsc")

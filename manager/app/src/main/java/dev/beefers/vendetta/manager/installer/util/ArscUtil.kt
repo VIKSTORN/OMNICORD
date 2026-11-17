@@ -174,4 +174,16 @@ object ArscUtil {
 
         return value
     }
+
+    /** Every file path a resource points to, across all configurations (densities etc.). */
+    fun ResourceTableChunk.getAllResourceFileNames(resourceId: BinaryResourceIdentifier): List<String> {
+        val packageChunk = this.packages.find { it.id == resourceId.packageId() } ?: return emptyList()
+        return packageChunk.getTypeChunks(resourceId.typeId()).mapNotNull { typeChunk ->
+            try {
+                val entry = typeChunk.getEntry(resourceId.entryId()) ?: return@mapNotNull null
+                if (entry.isComplex || entry.value().type() != BinaryResourceValue.Type.STRING) null
+                else this.stringPool.getString(entry.value().data())
+            } catch (_: Throwable) { null }
+        }.distinct()
+    }
 }

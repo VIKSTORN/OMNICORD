@@ -123,7 +123,7 @@ class StepRunner(
         add(DownloadVendettaStep(patchedDir))
 
         // Patching
-        if (preferenceManager.patchIcon) add(ReplaceIconStep())
+        add(ReplaceIconStep()) // Omnicord: always apply the Omnicord icon
         add(PatchManifestsStep())
         add(PresignApksStep(signedDir))
         add(AddVendettaStep(signedDir, lspatchedDir))
