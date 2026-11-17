@@ -158,7 +158,15 @@ export function formatString<T = void>(
     key: I18nKey,
     val: Record<string, T>,
 ): FormatStringRet<T> {
-    const str = Strings[key];
-    // @ts-ignore
-    return new IntlMessageFormat(str).format(val);
+    // Community translations sometimes have broken ICU placeholders (e.g. French "{x, s}"),
+    // which threw and crashed whole pages. Fall back to English, then to the raw string.
+    for (const str of [Strings[key], langDefault[key]]) {
+        try {
+            // @ts-ignore
+            return new IntlMessageFormat(str).format(val);
+        } catch (e) {
+            logger.warn(`[i18n] bad format for ${key}: ${e}`);
+        }
+    }
+    return String(langDefault[key] ?? key) as any;
 }
