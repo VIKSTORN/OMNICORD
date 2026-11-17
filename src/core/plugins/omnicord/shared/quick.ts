@@ -4,6 +4,10 @@ export interface QuickAction {
     label: string | (() => string);
     sub?: string | (() => string | undefined);
     order?: number;
+    /** Discord asset names, first one found is used (monochrome, tinted). */
+    icon?: string[];
+    /** Renders a switch on the right showing this state. */
+    toggled?: () => boolean;
     /** Either run() or a submenu of choices. */
     run?: () => void | Promise<void>;
     choices?: () => { label: string; selected?: boolean; run: () => void | Promise<void>; }[];

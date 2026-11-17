@@ -1,3 +1,4 @@
+import { Txt } from "@core/ui/components/SafeUI";
 import { hideSheet, makeRow, patchMessageSheet } from "../shared/actionSheet";
 import { nameOf, onJsx, seenNames } from "../shared/jsx";
 import { addQuickActions, openQuickMenu } from "../shared/quick";
@@ -86,11 +87,11 @@ function ChatTranslateButton({ s }: { s: S; }) {
     return (
         <RN.Pressable
             hitSlop={6}
-            onPress={() => openQuickMenu(TR_IDS, "🌐 Translate")}
+            onPress={() => openQuickMenu(TR_IDS, "Translate")}
             onLongPress={() => { s.autoOut = !s.autoOut; showToast(`Auto-translate sending: ${s.autoOut ? "ON → " + langName(s.outTarget) : "OFF"}`); }}
             style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", marginHorizontal: 2 }}>
             {src ? <RN.Image source={src} style={{ width: 24, height: 24, tintColor: tint }} />
-                : <RN.Text style={{ fontSize: 20, color: tint }}>🌐</RN.Text>}
+                : <Txt style={{ fontSize: 20, color: tint }}>🌐</Txt>}
         </RN.Pressable>
     );
 }
@@ -118,20 +119,20 @@ export default omniPlugin<S>({
         };
 
         patches.push(addQuickActions(
-            { id: "tr-chat", order: 20, label: "🌐 Translate this chat", sub: () => `Last 30 messages → ${langName(s.target)}`, run: () => translateChat(s) },
-            { id: "tr-restore", order: 21, label: "↩️ Show originals", sub: "Undo translations in this chat", run: () => restoreChat() },
+            { id: "tr-chat", order: 20, icon: ["LanguageIcon", "GlobeEarthIcon", "ic_locale_24px"], label: "Translate this chat", sub: () => `Last 30 messages → ${langName(s.target)}`, run: () => translateChat(s) },
+            { id: "tr-restore", order: 21, icon: ["ArrowAngleLeftUpIcon", "ArrowsLeftRightIcon", "ic_reply_24px", "ic_undo_24px"], label: "Show originals", sub: "Undo translations in this chat", run: () => restoreChat() },
             {
-                id: "tr-auto", order: 22, keepOpen: true,
-                label: () => `✍️ Auto-translate what I send: ${s.autoOut ? "ON" : "OFF"}`,
+                id: "tr-auto", order: 22, keepOpen: true, icon: ["PencilIcon", "ic_edit_24px"], toggled: () => s.autoOut,
+                label: "Auto-translate what I send",
                 sub: () => `Sends in ${langName(s.outTarget)}`,
                 run: () => { s.autoOut = !s.autoOut; },
             },
             {
-                id: "tr-lang", order: 23, label: () => `🌍 Read in: ${langName(s.target)}`,
+                id: "tr-lang", order: 23, icon: ["EyeIcon", "ic_eye"], label: "Read in", sub: () => langName(s.target),
                 choices: () => LANGS.map(([k, n]) => ({ label: n, selected: s.target === k, run: () => { s.target = k; } })),
             },
             {
-                id: "tr-out", order: 24, label: () => `🌍 Send in: ${langName(s.outTarget)}`,
+                id: "tr-out", order: 24, icon: ["SendMessageIcon", "ic_send"], label: "Send in", sub: () => langName(s.outTarget),
                 choices: () => LANGS.map(([k, n]) => ({ label: n, selected: s.outTarget === k, run: () => { s.outTarget = k; } })),
             },
         ));
@@ -204,7 +205,7 @@ export default omniPlugin<S>({
                     <Input store={storage} k="outTarget" title="Send messages in (language code)" placeholder="en" />
                 </Section>
                 <Section title="Debug (screenshot this if the 🌐 button is missing)">
-                    <RN.Text selectable style={{ color: "#949ba4", fontSize: 11, padding: 12 }}>{seenNames().join(", ") || "Open a chat first, then come back."}</RN.Text>
+                    <Txt selectable style={{ color: "#949ba4", fontSize: 11, padding: 12 }}>{seenNames().join(", ") || "Open a chat first, then come back."}</Txt>
                 </Section>
             </Scroll>
         );

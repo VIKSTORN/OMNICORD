@@ -1,12 +1,13 @@
+import { Txt } from "@core/ui/components/SafeUI";
 // Floating Ω bubble on top of Discord: tap for quick actions, drag to move.
 // Injected with AppRegistry.setWrapperComponentProvider (RN primitives only, no Discord components).
 import { useSafeColors } from "@core/ui/components/SafeUI";
 
 import { closeQuickMenu, getMenuState, getQuickActions, openQuickMenu, QuickAction, str, subscribeQuick } from "../shared/quick";
 import { Scroll, Section, Switch } from "../shared/ui";
-import { logger, omniPlugin, React, ReactNative as RN, showToast, useProxy } from "../vd";
+import { getAssetIDByName, logger, omniPlugin, React, ReactNative as RN, showToast, useProxy } from "../vd";
 
-const defaults = { show: true, x: -1, y: 0.35, size: 48, opacity: 0.85 };
+const defaults = { show: true, x: -1, y: 0.55, size: 30, opacity: 0.9, side: "right", v2: false };
 type S = typeof defaults;
 
 let store: S | undefined;
@@ -40,36 +41,51 @@ function Menu({ onClose, ids, title }: { onClose: () => void; ids?: string[]; ti
     };
 
     const items = sub
-        ? (sub.choices?.() ?? []).map((c, i) => ({ key: String(i), label: (c.selected ? "● " : "○ ") + c.label, sub: undefined, onPress: () => exec(c.run, sub.keepOpen) }))
+        ? (sub.choices?.() ?? []).map((c, i) => ({ key: String(i), label: c.label, selected: c.selected, onPress: () => exec(c.run, sub.keepOpen) }))
         : getQuickActions().filter(a => !ids || ids.includes(a.id)).map(a => ({
-            key: a.id, label: str(a.label)!, sub: str(a.sub),
+            key: a.id, label: str(a.label)!, sub: str(a.sub), icon: assetOf(a.icon), toggled: a.toggled?.(),
             onPress: () => a.choices ? setSub(a) : a.run && exec(a.run, a.keepOpen),
             more: !!a.choices,
         }));
+    const check = assetOf(["CheckmarkLargeIcon", "CheckmarkSmallIcon", "ic_check_24px", "Check"]);
 
     return (
-        <RN.Pressable onPress={onClose} style={[RN.StyleSheet.absoluteFill, { backgroundColor: "#000a", justifyContent: "center", padding: 20 }]}>
-            <RN.Pressable onPress={() => { }} style={{ backgroundColor: col.card, borderRadius: 16, overflow: "hidden", maxHeight: "80%" }}>
-                <RN.View style={{ flexDirection: "row", alignItems: "center", padding: 14, borderBottomWidth: 1, borderBottomColor: col.border }}>
-                    {sub ? <RN.Pressable onPress={() => setSub(null)} hitSlop={12}><RN.Text style={{ color: col.accent, fontSize: 18, marginRight: 10 }}>‹</RN.Text></RN.Pressable> : null}
-                    <RN.Text style={{ color: col.text, fontSize: 17, fontWeight: "700", flex: 1 }}>{sub ? str(sub.label) : title ?? "Ω Omnicord"}</RN.Text>
-                    <RN.Pressable onPress={onClose} hitSlop={12}><RN.Text style={{ color: col.muted, fontSize: 18 }}>✕</RN.Text></RN.Pressable>
+        <RN.Pressable onPress={onClose} style={[RN.StyleSheet.absoluteFill, { backgroundColor: "#0008", justifyContent: "flex-end" }]}>
+            <RN.Pressable onPress={() => { }} style={{ backgroundColor: col.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: "hidden", maxHeight: "75%", paddingBottom: 24, elevation: 16 }}>
+                <RN.View style={{ alignSelf: "center", width: 36, height: 4, borderRadius: 2, backgroundColor: col.border, marginTop: 8 }} />
+                <RN.View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 10, paddingBottom: 8 }}>
+                    {sub ? <RN.Pressable onPress={() => setSub(null)} hitSlop={12}><Txt style={{ color: col.accent, fontSize: 18, marginRight: 10 }}>‹</Txt></RN.Pressable> : null}
+                    <Txt style={{ color: col.text, fontSize: 18, fontWeight: "700", flex: 1 }}>{sub ? str(sub.label) : title ?? "Omnicord"}</Txt>
+                    <RN.Pressable onPress={onClose} hitSlop={12}><Txt style={{ color: col.muted, fontSize: 18 }}>✕</Txt></RN.Pressable>
                 </RN.View>
-                <RN.ScrollView>
+                <RN.ScrollView style={{ marginHorizontal: 12, borderRadius: 14, backgroundColor: col.bg }}>
                     {items.length ? items.map((it: any) => (
                         <RN.Pressable key={it.key} onPress={it.onPress} android_ripple={{ color: "#ffffff22" }}
-                            style={{ paddingVertical: 13, paddingHorizontal: 16, flexDirection: "row", alignItems: "center" }}>
+                            style={{ paddingVertical: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center" }}>
+                            {it.icon ? <RN.Image source={it.icon} style={{ width: 22, height: 22, tintColor: col.text, marginRight: 14, opacity: 0.85 }} /> : null}
                             <RN.View style={{ flex: 1 }}>
-                                <RN.Text style={{ color: col.text, fontSize: 16, fontWeight: "600" }}>{it.label}</RN.Text>
-                                {it.sub ? <RN.Text style={{ color: col.muted, fontSize: 13, marginTop: 2 }}>{it.sub}</RN.Text> : null}
+                                <Txt style={{ color: col.text, fontSize: 16, fontWeight: "500" }}>{it.label}</Txt>
+                                {it.sub ? <Txt style={{ color: col.muted, fontSize: 13, marginTop: 1 }}>{it.sub}</Txt> : null}
                             </RN.View>
-                            {it.more ? <RN.Text style={{ color: col.muted, fontSize: 18 }}>›</RN.Text> : null}
+                            {it.toggled !== undefined ? <RN.Switch value={it.toggled} onValueChange={it.onPress} trackColor={{ true: col.accent, false: col.border }} thumbColor="#fff" /> : null}
+                            {it.selected ? (check ? <RN.Image source={check} style={{ width: 20, height: 20, tintColor: col.accent }} /> : <Txt style={{ color: col.accent, fontSize: 16 }}>✓</Txt>) : null}
+                            {it.more ? <Txt style={{ color: col.muted, fontSize: 20 }}>›</Txt> : null}
                         </RN.Pressable>
-                    )) : <RN.Text style={{ color: col.muted, padding: 16 }}>No actions: enable some Omnicord plugins.</RN.Text>}
+                    )) : <Txt style={{ color: col.muted, padding: 16 }}>No actions: enable some Omnicord plugins.</Txt>}
                 </RN.ScrollView>
             </RN.Pressable>
         </RN.Pressable>
     );
+}
+
+const assetCache = new Map<string, number | undefined>();
+function assetOf(names?: string[]) {
+    if (!names) return;
+    for (const n of names) {
+        if (!assetCache.has(n)) { try { assetCache.set(n, getAssetIDByName(n) || undefined); } catch { assetCache.set(n, undefined); } }
+        const id = assetCache.get(n);
+        if (id) return id;
+    }
 }
 
 function Bubble() {
@@ -86,19 +102,22 @@ function Bubble() {
 
 function BubbleInner({ s }: { s: S; }) {
     useProxy(s);
+    const col = useSafeColors();
     const { width, height } = RN.useWindowDimensions();
-    const size = Math.max(32, Math.min(80, s?.size ?? 48));
+    const size = Math.max(24, Math.min(64, s.size ?? 30));
+    const tabW = Math.round(size * 0.8), tabH = Math.round(size * 1.5);
+    const xFor = (side: string, w: number) => side === "left" ? 0 : w - tabW;
 
     const pos = React.useRef(new RN.Animated.ValueXY()).current;
     const start = React.useRef({ x: 0, y: 0 });
     const cur = React.useRef({ x: 0, y: 0 });
 
     React.useEffect(() => {
-        const x = (s?.x ?? -1) < 0 ? width - size - 8 : Math.min(s!.x * width, width - size);
-        const y = Math.min((s?.y ?? 0.35) * height, height - size - 40);
+        const x = xFor(s.side, width);
+        const y = Math.max(60, Math.min((s.y ?? 0.55) * height, height - tabH - 60));
         cur.current = { x, y };
         pos.setValue({ x, y });
-    }, [width, height, size]);
+    }, [width, height, size, s.side]);
 
     const pan = React.useMemo(() => RN.PanResponder.create({
         onStartShouldSetPanResponder: () => true,
@@ -111,28 +130,32 @@ function BubbleInner({ s }: { s: S; }) {
                 return openQuickMenu();
             }
             const { width: w, height: h } = RN.Dimensions.get("window");
-            // snap to nearest side
-            const x = start.current.x + g.dx + size / 2 < w / 2 ? 8 : w - size - 8;
-            const y = Math.max(30, Math.min(h - size - 40, start.current.y + g.dy));
+            const side = start.current.x + g.dx + tabW / 2 < w / 2 ? "left" : "right";
+            const x = xFor(side, w);
+            const y = Math.max(60, Math.min(h - tabH - 60, start.current.y + g.dy));
             cur.current = { x, y };
             RN.Animated.spring(pos, { toValue: { x, y }, useNativeDriver: false }).start();
-            if (s) { s.x = x / w; s.y = y / h; }
+            s.side = side; s.y = y / h;
         },
-    }), [size]);
+    }), [size, s.side]);
 
     if (!s.show) return null;
+    const left = s.side === "left";
 
+    // Slim tab docked to the screen edge: covers almost nothing, drag to move it up/down or to the other side.
     return (
         <RN.View pointerEvents="box-none" style={RN.StyleSheet.absoluteFill}>
-            {(
-                <RN.Animated.View {...pan.panHandlers} style={{
-                    position: "absolute", left: 0, top: 0, transform: pos.getTranslateTransform(),
-                    width: size, height: size, borderRadius: size / 2, backgroundColor: "#7c5cff", opacity: s.opacity ?? 0.85,
-                    alignItems: "center", justifyContent: "center", elevation: 8,
-                }}>
-                    <RN.Text style={{ color: "white", fontSize: size * 0.5, fontWeight: "800", marginTop: -2 }}>Ω</RN.Text>
-                </RN.Animated.View>
-            )}
+            <RN.Animated.View {...pan.panHandlers} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{
+                position: "absolute", left: 0, top: 0, transform: pos.getTranslateTransform(),
+                width: tabW, height: tabH, opacity: s.opacity ?? 0.9,
+                backgroundColor: col.card, borderColor: "#7c5cff", borderWidth: 1.5,
+                borderTopLeftRadius: left ? 0 : tabH / 2, borderBottomLeftRadius: left ? 0 : tabH / 2,
+                borderTopRightRadius: left ? tabH / 2 : 0, borderBottomRightRadius: left ? tabH / 2 : 0,
+                borderLeftWidth: left ? 0 : 1.5, borderRightWidth: left ? 1.5 : 0,
+                alignItems: "center", justifyContent: "center", elevation: 6,
+            }}>
+                <Txt style={{ color: "#7c5cff", fontSize: size * 0.55, fontWeight: "800", marginLeft: left ? -2 : 2 }}>Ω</Txt>
+            </RN.Animated.View>
         </RN.View>
     );
 }
@@ -177,6 +200,7 @@ export default omniPlugin<S>({
     description: "Floating Ω button with one-tap actions: Read all, Translate, Theme… (drag to move)",
     defaults,
     start(s) {
+        if (!s.v2) { s.size = 30; s.opacity = 0.9; s.side = "right"; s.y = 0.55; s.v2 = true; } // new slim tab look
         store = s;
         if (!installed) showToast("Quick Menu: restart Discord to show the Ω button");
         setEnabled(true);
@@ -189,10 +213,10 @@ export default omniPlugin<S>({
             void (storage[k] = Math.round(Math.max(min, Math.min(max, storage[k] + d)) * 100) / 100);
         const Stepper = ({ label, k, d, min, max }: any) => (
             <RN.View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 14 }}>
-                <RN.Text style={{ color: col.text, fontSize: 16, flex: 1 }}>{label}: {storage[k as keyof S]}</RN.Text>
+                <Txt style={{ color: col.text, fontSize: 16, flex: 1 }}>{label}: {storage[k as keyof S]}</Txt>
                 {[-d, d].map(v => (
                     <RN.Pressable key={v} onPress={() => step(k, v, min, max)} style={{ backgroundColor: col.border, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8 }}>
-                        <RN.Text style={{ color: col.text, fontSize: 16 }}>{v < 0 ? "−" : "+"}</RN.Text>
+                        <Txt style={{ color: col.text, fontSize: 16 }}>{v < 0 ? "−" : "+"}</Txt>
                     </RN.Pressable>
                 ))}
             </RN.View>
@@ -200,8 +224,8 @@ export default omniPlugin<S>({
         return (
             <Scroll>
                 <Section>
-                    <Switch store={storage} k="show" label="Show Ω button" sub="Tap = actions, drag = move" />
-                    <Stepper label="Size" k="size" d={4} min={32} max={80} />
+                    <Switch store={storage} k="show" label="Show Ω tab" sub="Tap = actions, drag = move (snaps to left/right edge)" />
+                    <Stepper label="Size" k="size" d={4} min={24} max={64} />
                     <Stepper label="Opacity" k="opacity" d={0.1} min={0.3} max={1} />
                 </Section>
             </Scroll>
