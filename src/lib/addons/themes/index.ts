@@ -12,6 +12,8 @@ import { VendettaThemeManifest } from "./colors/types";
 import { themeHooks } from "./colors/omniEngine";
 import { updateBunnyColor } from "./colors/updater";
 
+export const OMNI_MARK = "\u200b[omnicord]";
+
 export interface VdThemeInfo {
     id: string;
     selected: boolean;
@@ -28,6 +30,12 @@ export async function writeThemeToNative(theme: VdThemeInfo | {}) {
 
     // Save the current theme as current-theme.json. When supported by loader,
     // this json will be written to appropriate path and be used to theme the native side.
+    // Omnicord: the native loader only keeps known fields (drops background), so stash extras in description.
+    const data: any = (theme as any)?.data;
+    if (data && (data.background || data.omnicord)) {
+        const extra = JSON.stringify({ background: data.background, omnicord: data.omnicord });
+        theme = { ...(theme as any), data: { ...data, description: `${String(data.description ?? "").split(OMNI_MARK)[0]}${OMNI_MARK}${extra}` } };
+    }
     await createFileBackend(getThemeFilePath() || "theme.json").set(theme);
 }
 

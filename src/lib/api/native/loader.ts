@@ -150,7 +150,7 @@ export function isThemeSupported() {
     return false;
 }
 
-export function getStoredTheme(): VdThemeInfo | null {
+function getStoredThemeRaw(): VdThemeInfo | null {
     if (isPyonLoader()) {
         return pyonLoaderIdentity.storedTheme;
     } else if (isVendettaLoader()) {
@@ -161,6 +161,19 @@ export function getStoredTheme(): VdThemeInfo | null {
     }
 
     return null;
+}
+
+/** Stored theme, with Omnicord extras (background etc.) restored from the description stash. */
+export function getStoredTheme(): VdThemeInfo | null {
+    const t: any = getStoredThemeRaw();
+    const desc = t?.data?.description;
+    const MARK = "\u200b[omnicord]";
+    if (typeof desc !== "string" || !desc.includes(MARK)) return t;
+    try {
+        const [clean, json] = desc.split(MARK);
+        const extra = JSON.parse(json);
+        return { ...t, data: { ...t.data, description: clean, background: t.data.background ?? extra.background, omnicord: t.data.omnicord ?? extra.omnicord } };
+    } catch { return t; }
 }
 
 export function getThemeFilePath() {
