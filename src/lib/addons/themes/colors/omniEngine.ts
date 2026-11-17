@@ -85,7 +85,7 @@ function applyRaw() {
 let owner: string | null = null;
 export const colorOwner = () => owner;
 /** Called when the Themes page selects a theme, so Custom Theme can switch itself off. */
-export const themeHooks: { onExternalSelect?: () => void; } = {};
+export const themeHooks: { onSelect?: (theme: { id: string; } | null) => void; } = {};
 
 export function setColors(sem: Record<string, string> | null, rawColors: Record<string, string> | null, by: string | null = null) {
     owner = sem || rawColors ? by : null;

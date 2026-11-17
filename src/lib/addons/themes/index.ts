@@ -108,7 +108,7 @@ export async function installTheme(url: string) {
 export function selectTheme(theme: VdThemeInfo | null, write = true) {
     if (theme) theme.selected = true;
     // Omnicord: a Themes-page theme replaces Custom Theme (they share the color engine).
-    if (theme && !String(theme.id).startsWith("equicord-mobile://")) themeHooks.onExternalSelect?.();
+    try { themeHooks.onSelect?.(theme); } catch (e) { console.error(e); }
     Object.keys(themes).forEach(
         k => themes[k].selected = themes[k].id === theme?.id
     );
