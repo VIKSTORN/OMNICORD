@@ -105,7 +105,7 @@ function BubbleInner({ s }: { s: S; }) {
     const col = useSafeColors();
     const { width, height } = RN.useWindowDimensions();
     const size = Math.max(24, Math.min(64, s.size ?? 30));
-    const tabW = 22, tabH = Math.round(size * 2);
+    const tabW = Math.round(size * 0.8), tabH = Math.round(size * 1.5);
     const xFor = (side: string, w: number) => side === "left" ? 0 : w - tabW;
 
     const pos = React.useRef(new RN.Animated.ValueXY()).current;
@@ -145,16 +145,16 @@ function BubbleInner({ s }: { s: S; }) {
     // Slim tab docked to the screen edge: covers almost nothing, drag to move it up/down or to the other side.
     return (
         <RN.View pointerEvents="box-none" style={RN.StyleSheet.absoluteFill}>
-            <RN.Animated.View {...pan.panHandlers} style={{
+            <RN.Animated.View {...pan.panHandlers} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{
                 position: "absolute", left: 0, top: 0, transform: pos.getTranslateTransform(),
                 width: tabW, height: tabH, opacity: s.opacity ?? 0.9,
-                alignItems: left ? "flex-start" : "flex-end", justifyContent: "center",
+                backgroundColor: "#000000", borderColor: "#ffffff", borderWidth: 1.5,
+                borderTopLeftRadius: left ? 0 : tabH / 2, borderBottomLeftRadius: left ? 0 : tabH / 2,
+                borderTopRightRadius: left ? tabH / 2 : 0, borderBottomRightRadius: left ? tabH / 2 : 0,
+                borderLeftWidth: left ? 0 : 1.5, borderRightWidth: left ? 1.5 : 0,
+                alignItems: "center", justifyContent: "center", elevation: 6,
             }}>
-                {/* Grip handle: thin pill hugging the edge (the whole 22dp strip is touchable). */}
-                <RN.View style={{
-                    width: 5, height: tabH - 8, borderRadius: 3, marginHorizontal: 3,
-                    backgroundColor: col.text, opacity: 0.45,
-                }} />
+                <Txt style={{ color: "#ffffff", fontSize: size * 0.55, fontWeight: "800", marginLeft: left ? -2 : 2 }}>Ω</Txt>
             </RN.Animated.View>
         </RN.View>
     );
@@ -201,7 +201,6 @@ export default omniPlugin<S>({
     defaults,
     start(s) {
         if (!s.v2) { s.size = 30; s.opacity = 0.9; s.side = "right"; s.y = 0.55; s.v2 = true; } // new slim tab look
-        if (!s.v3) { s.size = 30; s.opacity = 0.9; s.v3 = true; } // grip-handle look
         store = s;
         if (!installed) showToast("Quick Menu: restart Discord to show the Ω button");
         setEnabled(true);
@@ -225,7 +224,7 @@ export default omniPlugin<S>({
         return (
             <Scroll>
                 <Section>
-                    <Switch store={storage} k="show" label="Show edge handle" sub="Thin bar on the screen edge. Tap = Omnicord menu, drag = move" />
+                    <Switch store={storage} k="show" label="Show Ω tab" sub="Tap = actions, drag = move (snaps to left/right edge)" />
                     <Stepper label="Size" k="size" d={4} min={24} max={64} />
                     <Stepper label="Opacity" k="opacity" d={0.1} min={0.3} max={1} />
                 </Section>
