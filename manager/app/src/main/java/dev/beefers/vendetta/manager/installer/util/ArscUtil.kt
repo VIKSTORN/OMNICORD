@@ -63,6 +63,25 @@ object ArscUtil {
     }
 
     /**
+     * Adds a file-backed resource (e.g. a PNG drawable) to the default configuration.
+     * The file itself must be written into the APK at [path].
+     */
+    fun BinaryResourceFile.addFileResource(
+        typeName: String,
+        resourceName: String,
+        path: String,
+    ): BinaryResourceIdentifier {
+        val pathIdx = this.getMainArscChunk().stringPool.addString(path, /* deduplicate = */ true)
+        return this.getPackageChunk().addResource(
+            typeName = typeName,
+            resourceName = resourceName,
+            configurations = { it.isDefault },
+            valueType = BinaryResourceValue.Type.STRING,
+            valueData = pathIdx,
+        )
+    }
+
+    /**
      * Adds a new color resource to the matching configuration variants in an arsc package.
      *
      * @param typeName The type of the resource (ex: `mipmap`, `drawable`, etc.)

@@ -11,6 +11,7 @@ import dev.beefers.vendetta.manager.installer.step.StepRunner
 import dev.beefers.vendetta.manager.installer.step.download.DownloadBaseStep
 import dev.beefers.vendetta.manager.installer.util.ArscUtil
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.addColorResource
+import dev.beefers.vendetta.manager.installer.util.ArscUtil.addFileResource
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getMainArscChunk
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getPackageChunk
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getResourceFileName
@@ -42,7 +43,15 @@ class ReplaceIconStep : Step() {
 
         runner.logger.i("Patching icon assets (squareIcon=$squareIconFile, roundIcon=$roundIconFile)")
 
-        val backgroundColor = arsc.getPackageChunk().addColorResource("omnicord_color", Color(0xFF7C5CFF))
+        val backgroundColor = arsc.getPackageChunk().addColorResource("omnicord_color", Color(0xFFBFBFBF))
+
+        // Omnicord app icon: bundled PNG added as a new drawable resource and used as the foreground.
+        val iconPath = "res/omnicord_icon.png"
+        val foregroundIcon = arsc.addFileResource("drawable", "omnicord_icon", iconPath)
+        ZipWriter(baseApk, /* append = */ true).use { zip ->
+            zip.deleteEntry(iconPath)
+            zip.writeEntry(iconPath, context.assets.open("omnicord_icon.png").use { it.readBytes() })
+        }
 
         val postfix = when (preferences.channel) {
             DiscordVersion.Type.BETA -> "beta"
@@ -62,6 +71,7 @@ class ReplaceIconStep : Step() {
                 resourcePath = rscFile,
                 referencePath = referencePath,
                 backgroundColor = backgroundColor,
+                foregroundIcon = foregroundIcon,
             )
         }
 
