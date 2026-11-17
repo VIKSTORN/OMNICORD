@@ -44,14 +44,20 @@ type S = typeof defaults;
 
 const s2 = (c: string) => [c, c]; // [dark, light]
 
-const SKIP = /MODIFIER|_MOD_|STATUS|DANGER|WARNING|POSITIVE|CRITICAL|INFO|MENTION|SPOILER|BADGE|PREMIUM|NITRO|BOOST|SPEAKING|ONLINE|IDLE|DND|OFFLINE|STREAMING|SHADOW|BORDER|SCROLLBAR|HOVER|ACTIVE|SELECTED|PRESSED|HIGHLIGHT|_ON_|WHITE|BLACK|DEPRECATED|GRADIENT|OVERLAY_(LIGHT|DARK)|FILTER|LOCKED|NOTICE|AUTOMOD|GUILD_|CHANNEL_TEXT_AREA_PLACEHOLDER/;
+// Token-based (split on "_") so e.g. INTERACTIVE isn't caught by ACTIVE.
+const SKIP_PARTS = new Set(["MODIFIER", "MOD", "STATUS", "DANGER", "WARNING", "POSITIVE", "CRITICAL", "INFO", "MENTION", "MENTIONED", "SPOILER",
+    "BADGE", "PREMIUM", "NITRO", "BOOST", "SPEAKING", "ONLINE", "IDLE", "DND", "OFFLINE", "STREAMING", "SHADOW", "BORDER", "SCROLLBAR", "HOVER",
+    "ACTIVE", "SELECTED", "PRESSED", "HIGHLIGHT", "ON", "WHITE", "BLACK", "DEPRECATED", "GRADIENT", "FILTER", "LOCKED", "NOTICE", "AUTOMOD",
+    "GUILD", "DIVIDER", "UNREAD", "NEW", "RED", "GREEN", "YELLOW", "ORANGE", "BLURPLE", "TOOLTIP", "SPINE", "LOGO"]);
+const isBg = (k: string) => /BACKGROUND|(^|_)BG(_|$)|SURFACE|(^|_)FILL|TILE|CONTAINER|(^|_)PANEL/.test(k);
 
 function classify(k: string, p: Palette): string | undefined {
-    if (SKIP.test(k)) return;
-    if (/BRAND|LINK|ACCENT/.test(k)) return /TEXT|ICON|BACKGROUND|BG_|BUTTON|CONTROL/.test(k) ? p.accent : undefined;
-    if (/^(TEXT|HEADER|INTERACTIVE|CHANNELS|ICON)/.test(k))
+    if (k.split("_").some(x => SKIP_PARTS.has(x))) return;
+    if (/BRAND|LINK|ACCENT/.test(k)) return /TEXT|BACKGROUND|BUTTON/.test(k) ? p.accent : undefined;
+    if (!isBg(k) && /^(TEXT|HEADER|INTERACTIVE|CHANNELS|ICON)/.test(k))
         return /MUTED|SECONDARY|TERTIARY|PLACEHOLDER|SUBTLE|DISABLED|FAINT|LOW/.test(k) ? p.muted : /HEADER_PRIMARY|STRONG|HIGH/.test(k) ? p.header : p.text;
-    if (/BACKGROUND|^BG_|CARD|SURFACE|CONTAINER|CHAT_|MODAL|SHEET|HOME_|PANEL|NAV|TAB_BAR|INPUT/.test(k)) {
+    if (/^(ICON|TEXT|HEADER|INTERACTIVE|CHANNELS)/.test(k)) return; // icon/text tiles etc: keep Discord's
+    if (isBg(k) || /CARD|CHAT_|MODAL|SHEET|HOME_|NAV|TAB_BAR|INPUT/.test(k)) {
         if (/TERTIARY|FLOATING|BACKDROP|LOWEST|DEEP|NAV|TAB_BAR|MOBILE_SECONDARY|SECONDARY_ALT/.test(k)) return p.bg3;
         if (/SECONDARY|RAISED|OVERLAY|CARD|INPUT|MOBILE_PRIMARY|HIGHER|SURFACE|MODAL|SHEET/.test(k)) return p.bg2;
         return p.bg1;
@@ -66,9 +72,7 @@ function rawScale(p: Palette) {
         const m = /^PRIMARY_(\d+)$/.exec(k);
         if (!m) continue;
         const n = +m[1];
-        if (n <= 200) out[k] = mix(p.header, p.text, n / 200);
-        else if (n <= 400) out[k] = mix(p.text, p.muted, (n - 200) / 200);
-        else if (n < 560) continue; // mid greys (borders/icons): keep Discord's
+        if (n < 560) continue; // light/mid greys are text, icons and tiles: keep Discord's
         else if (n <= 600) out[k] = chroma(p.bg1).brighten((600 - n) / 100).hex();
         else if (n <= 630) out[k] = mix(p.bg1, p.bg2, (n - 600) / 30);
         else if (n <= 700) out[k] = mix(p.bg2, p.bg3, (n - 630) / 70);
@@ -123,7 +127,7 @@ function apply(st: S, notify = true) {
     setColors(flat(data), data.rawColors);
     // Persist to the loader's theme file: read synchronously on next boot (before Discord draws),
     // also used by the native side for the chat list.
-    themes.writeThemeToNative({ id: THEME_ID, selected: true, data } as any).catch((e: any) => logger.error(e));
+    themes.writeThemeToNative({ id: THEME_ID, selected: true, data: { ...data, omnicord: { palette: p, bg: st.bg, deep: st.deep } } } as any).catch((e: any) => logger.error(e));
     // Background picture goes through Kettu's chat-background patch (no theme switch).
     try { updateBunnyColor(data.background ? data as any : null, { update: false }); } catch (e) { logger.error(e); }
     st.enabled = true;
@@ -140,8 +144,12 @@ const flat = (data: { semanticColors?: Record<string, string[]>; }) => {
 // synchronously, from the loader's stored theme file.
 try {
     const saved: any = getStoredTheme();
-    if (saved?.id === THEME_ID && saved.data?.semanticColors && installEngine())
-        setColors(flat(saved.data), saved.data.rawColors ?? null);
+    if (saved?.id === THEME_ID && saved.data?.semanticColors && installEngine()) {
+        // Rebuild from the saved palette so mapping fixes in new releases apply immediately.
+        const o = saved.data.omnicord;
+        const data = o?.palette ? buildTheme(o.palette, o.bg, o.deep) : saved.data;
+        setColors(flat(data), data.rawColors ?? null);
+    }
 } catch (e) { logger.error("custom theme boot apply failed", e); }
 
 /** Release ≤5 registered a Kettu theme (fake theme key), which Discord 349 ignores. Remove it. */
