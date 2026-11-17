@@ -1,7 +1,10 @@
 // Color engine for Discord 349+: overrides resolveSemanticColor for the real base themes
 // (dark/darker/midnight/light) instead of registering a fake theme key, which new Discord ignores.
 // Approach adapted from Valenced's api.themes plugin.
-import { before, findByProps, instead, logger, React } from "../vd";
+import { before, instead } from "@lib/api/patcher";
+import { logger } from "@lib/utils/logger";
+import { findByProps } from "@metro";
+import { React } from "@metro/common";
 
 let semantic: Record<string, string> | null = null;
 let raw: Record<string, string> | null = null;
@@ -78,7 +81,14 @@ function applyRaw() {
     }
 }
 
-export function setColors(sem: Record<string, string> | null, rawColors: Record<string, string> | null) {
+/** Who set the current colors: "custom" (Custom Theme plugin) or "themes" (Themes page). */
+let owner: string | null = null;
+export const colorOwner = () => owner;
+/** Called when the Themes page selects a theme, so Custom Theme can switch itself off. */
+export const themeHooks: { onExternalSelect?: () => void; } = {};
+
+export function setColors(sem: Record<string, string> | null, rawColors: Record<string, string> | null, by: string | null = null) {
+    owner = sem || rawColors ? by : null;
     restoreRaw();
     semantic = sem;
     raw = rawColors;
