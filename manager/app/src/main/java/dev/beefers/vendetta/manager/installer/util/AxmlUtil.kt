@@ -59,6 +59,14 @@ object AxmlUtil {
             ?: error("Failed to find $name attribute in an axml chunk")
     }
 
+    /** Resource id referenced by <foreground android:drawable> in an adaptive icon, or null. */
+    fun readAdaptiveForegroundId(apk: File, resourcePath: String): Int? = try {
+        val chunk = readAxml(apk, resourcePath).getMainAxmlChunk()
+        val fg = chunk.getStartElementChunk("foreground")
+        val v = fg?.getAttribute("drawable")?.typedValue()
+        if (v != null && v.type() == BinaryResourceValue.Type.REFERENCE) v.data() else null
+    } catch (_: Throwable) { null }
+
     /**
      * Patches an <adaptive-icon> axml file to change the `background`, `foreground`, and `monochrome` resource references.
      * If any of the following are not null, then they will be patched.

@@ -20,6 +20,7 @@ import dev.beefers.vendetta.manager.installer.util.ArscUtil.getPackageChunk
 import dev.beefers.vendetta.manager.installer.util.ArscUtil.getResourceFileName
 import dev.beefers.vendetta.manager.installer.util.AxmlUtil
 import dev.beefers.vendetta.manager.utils.DiscordVersion
+import com.google.devrel.gmscore.tools.apk.arsc.BinaryResourceIdentifier
 import org.koin.core.component.inject
 
 /**
@@ -43,28 +44,6 @@ class ReplaceIconStep : Step() {
 
         // Every part is guarded: a failed icon change must never block the install.
 
-        // 1) Legacy PNG/WebP icons (installer previews, some launchers): plain file overwrite, no resource table edits.
-        runCatching {
-            val arsc = ArscUtil.readArsc(baseApk)
-            val apks = listOfNotNull(
-                baseApk,
-                runCatching { runner.getCompletedStep<DownloadResourcesStep>().workingCopy }.getOrNull(),
-            )
-            val legacy = (arsc.getMainArscChunk().getAllResourceFileNames(iconRscIds.squareIcon) +
-                arsc.getMainArscChunk().getAllResourceFileNames(iconRscIds.roundIcon))
-                .filter { it.endsWith(".png") || it.endsWith(".webp") }
-                .distinct()
-            runner.logger.i("Legacy icon files: $legacy")
-            for (path in legacy) {
-                val target = apks.firstOrNull { apk -> ZipReader(apk).use { it.openEntry(path) != null } } ?: continue
-                runner.logger.i("Replacing legacy icon $path in ${target.name}")
-                ZipWriter(target, /* append = */ true).use {
-                    it.deleteEntry(path)
-                    it.writeEntry(path, iconBytes)
-                }
-            }
-        }.onFailure { runner.logger.e("Legacy icon replacement failed", it) }
-
         // 2) Adaptive icon with our picture as foreground; 3) fallback: background color only (original method).
         val full = runCatching { patchAdaptive(runner, baseApk, iconRscIds, iconBytes, withPicture = true) }
             .onFailure { runner.logger.e("Adaptive icon (picture) failed, falling back to color", it) }
@@ -72,6 +51,34 @@ class ReplaceIconStep : Step() {
             runCatching { patchAdaptive(runner, baseApk, iconRscIds, iconBytes, withPicture = false) }
                 .onFailure { runner.logger.e("Adaptive icon (color) failed, keeping Discord's icon", it) }
         }
+
+        // 4) Overwrite the picture files themselves (no resource-table edits): Discord's foreground layer
+        //    and the old-style icons. They mostly live in the density split, so read both resource tables.
+        runCatching {
+            val splitApk = runCatching { runner.getCompletedStep<DownloadResourcesStep>().workingCopy }.getOrNull()
+            val apks = listOfNotNull(baseApk, splitApk)
+            val baseArsc = ArscUtil.readArsc(baseApk).getMainArscChunk()
+            val tables = listOfNotNull(baseArsc, splitApk?.let { runCatching { ArscUtil.readArsc(it).getMainArscChunk() }.getOrNull() })
+
+            val ids = mutableListOf(iconRscIds.squareIcon, iconRscIds.roundIcon)
+            for (icon in listOf(iconRscIds.squareIcon, iconRscIds.roundIcon)) {
+                val xml = runCatching { baseArsc.getResourceFileName(icon, "anydpi-v26") }.getOrNull() ?: continue
+                AxmlUtil.readAdaptiveForegroundId(baseApk, xml)?.let { ids += BinaryResourceIdentifier.create(it) }
+            }
+
+            val files = tables.flatMap { table -> ids.flatMap { table.getAllResourceFileNames(it) } }
+                .filter { it.endsWith(".png") || it.endsWith(".webp") }
+                .distinct()
+            runner.logger.i("Icon picture files: $files")
+            for (path in files) {
+                val target = apks.firstOrNull { apk -> ZipReader(apk).use { it.openEntry(path) != null } } ?: continue
+                runner.logger.i("Replacing $path in ${target.name}")
+                ZipWriter(target, /* append = */ true).use {
+                    it.deleteEntry(path)
+                    it.writeEntry(path, iconBytes)
+                }
+            }
+        }.onFailure { runner.logger.e("Icon file replacement failed", it) }
     }
 
     private fun patchAdaptive(
