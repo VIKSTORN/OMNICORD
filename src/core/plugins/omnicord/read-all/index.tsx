@@ -57,7 +57,7 @@ export default omniPlugin<S>({
     start(s) {
         unquick = addQuickActions({
             id: "read-all", order: 10,
-            label: "✅ Read all",
+            label: "Read all", icon: ["ChatCheckIcon", "CheckmarkLargeIcon", "ic_mark_read", "ic_check_24px"],
             sub: () => `Mark every server channel${s.includeDMs ? " + DMs" : ""} as read`,
             run: () => runWithConfirm(s),
         });

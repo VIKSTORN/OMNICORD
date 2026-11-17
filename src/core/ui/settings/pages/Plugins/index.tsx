@@ -1,5 +1,5 @@
 // Omnicord: plugins page using only React Native primitives (see SafeUI.tsx).
-import { SafeButton, SafeDivider, SafeInput, SafePage, SafeSection, SafeSwitchRow, SafeText, useSafeColors } from "@core/ui/components/SafeUI";
+import { SafeButton, SafeDivider, SafeInput, SafePage, SafeSection, SafeSwitchRow, SafeText, Txt, useSafeColors } from "@core/ui/components/SafeUI";
 import { UnifiedPluginModel } from "@core/ui/settings/pages/Plugins/models";
 import { VdPluginManager } from "@core/vendetta/plugins";
 import { useProxy } from "@core/vendetta/storage";
@@ -34,7 +34,7 @@ function PluginRow({ plugin, onChange }: { plugin: UnifiedPluginModel; onChange:
             {enabled && Settings ? (
                 <Pressable onPress={() => navigation.push("PUPU_CUSTOM_PAGE", { title: plugin.name, render: Settings })}
                     style={{ paddingHorizontal: 14, paddingBottom: 12, marginTop: -6 }}>
-                    <Text style={{ color: col.accent, fontWeight: "700" }}>⚙ Settings</Text>
+                    <Txt style={{ color: col.accent, fontWeight: "700" }}>⚙ Settings</Txt>
                 </Pressable>
             ) : null}
         </View>

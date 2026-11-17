@@ -1,9 +1,11 @@
+import { Txt } from "@core/ui/components/SafeUI";
 import * as themes from "@lib/addons/themes";
 import chroma from "chroma-js";
 
 import { SafeInput, SafeSwitchRow } from "@core/ui/components/SafeUI";
 
 import { updateBunnyColor } from "@lib/addons/themes/colors/updater";
+import { getStoredTheme } from "@lib/api/native/loader";
 
 import { addQuickActions } from "../shared/quick";
 import { installEngine, rawNames, setColors, tokenNames, uninstallEngine } from "./engine";
@@ -118,19 +120,35 @@ function apply(st: S, notify = true) {
     const data = buildTheme(p, st.bg, st.deep);
     dropLegacy();
     if (!installEngine()) return void showToast("Theme engine not supported on this Discord version");
-    const sem: Record<string, string> = {};
-    for (const [k, v] of Object.entries(data.semanticColors)) sem[k] = v[0];
-    setColors(sem, data.rawColors);
+    setColors(flat(data), data.rawColors);
+    // Persist to the loader's theme file: read synchronously on next boot (before Discord draws),
+    // also used by the native side for the chat list.
+    themes.writeThemeToNative({ id: THEME_ID, selected: true, data } as any).catch((e: any) => logger.error(e));
     // Background picture goes through Kettu's chat-background patch (no theme switch).
     try { updateBunnyColor(data.background ? data as any : null, { update: false }); } catch (e) { logger.error(e); }
     st.enabled = true;
     notify && showToast("Theme applied (restart Discord if some parts didn't change)", icon("check"));
 }
 
+const flat = (data: { semanticColors?: Record<string, string[]>; }) => {
+    const sem: Record<string, string> = {};
+    for (const [k, v] of Object.entries(data.semanticColors ?? {})) if (v?.[0]) sem[k] = v[0];
+    return sem;
+};
+
+// Boot: plugin start() is async and races Discord's first render, so apply the saved theme now,
+// synchronously, from the loader's stored theme file.
+try {
+    const saved: any = getStoredTheme();
+    if (saved?.id === THEME_ID && saved.data?.semanticColors && installEngine())
+        setColors(flat(saved.data), saved.data.rawColors ?? null);
+} catch (e) { logger.error("custom theme boot apply failed", e); }
+
 /** Release ≤5 registered a Kettu theme (fake theme key), which Discord 349 ignores. Remove it. */
 function dropLegacy() {
     try {
-        if (themes.getCurrentTheme()?.id === THEME_ID) themes.selectTheme(null);
+        if (!themes.themes[THEME_ID]) return;
+        if (themes.themes[THEME_ID].selected) themes.selectTheme(null, false);
         delete themes.themes[THEME_ID];
     } catch (e) { logger.error(e); }
 }
@@ -138,6 +156,7 @@ function dropLegacy() {
 function reset(st: S, keepFlag = false) {
     dropLegacy();
     setColors(null, null);
+    themes.writeThemeToNative({}).catch(() => { });
     try { updateBunnyColor(null, { update: false }); } catch { }
     if (!keepFlag) st.enabled = false;
 }
@@ -161,10 +180,10 @@ async function pickImage(): Promise<string | undefined> {
 function Stepper({ label, value, onChange }: { label: string; value: string; onChange: (d: number) => void; }) {
     return (
         <RN.View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, paddingHorizontal: 14 }}>
-            <RN.Text style={{ color: "#dbdee1", fontSize: 16, flex: 1 }}>{label}: {value}</RN.Text>
+            <Txt style={{ color: "#dbdee1", fontSize: 16, flex: 1 }}>{label}: {value}</Txt>
             {[-1, 1].map(d => (
                 <RN.Pressable key={d} onPress={() => onChange(d)} style={{ backgroundColor: "#4e505888", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6, marginLeft: 8 }}>
-                    <RN.Text style={{ color: "#fff", fontSize: 16 }}>{d < 0 ? "−" : "+"}</RN.Text>
+                    <Txt style={{ color: "#fff", fontSize: 16 }}>{d < 0 ? "−" : "+"}</Txt>
                 </RN.Pressable>
             ))}
         </RN.View>
@@ -182,7 +201,8 @@ export default omniPlugin<S>({
         const same = (a: Palette) => FIELDS.every(([k]) => a[k]?.toLowerCase() === st.palette[k]?.toLowerCase());
         unquick = addQuickActions({
             id: "theme", order: 40,
-            label: () => `🎨 Theme: ${st.enabled ? Object.keys(PRESETS).find(n => same(PRESETS[n])) ?? "Custom" : "Off"}`,
+            icon: ["PaintPaletteIcon", "ThemeIcon", "ic_theme_24px", "ic_palette"],
+            label: "Theme", sub: () => st.enabled ? Object.keys(PRESETS).find(n => same(PRESETS[n])) ?? "Custom" : "Off",
             choices: () => [
                 ...Object.entries(PRESETS).map(([name, pal]) => ({
                     label: name, selected: st.enabled && same(pal),

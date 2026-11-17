@@ -3,11 +3,20 @@
 // which blanked pages; these never depend on them.
 import { resolveSemanticColor, semanticColors } from "@ui/color";
 import { ComponentProps, ReactNode } from "react";
-import { Image, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 const FALLBACK = {
     bg: "#1e1f22", card: "#2b2d31", text: "#f2f3f5", muted: "#b5bac1", border: "#3f4147", accent: "#7c5cff", danger: "#da373c",
 };
+
+// Discord's own font (gg sans). RN's default font renders monospace on some ROMs.
+const FAM: Record<string, string> = { "400": "ggsans-Normal", normal: "ggsans-Normal", "500": "ggsans-Medium", "600": "ggsans-Semibold", "700": "ggsans-Bold", bold: "ggsans-Bold", "800": "ggsans-ExtraBold", "900": "ggsans-ExtraBold" };
+export const fontFor = (w?: string | number) => FAM[String(w ?? "400")] ?? FAM["400"];
+
+export function Txt({ style, ...p }: ComponentProps<typeof Text>) {
+    const f: any = StyleSheet.flatten(style) ?? {};
+    return <Text {...p} style={[style, { fontFamily: fontFor(f.fontWeight), fontWeight: undefined }]} />;
+}
 
 function c(name: string, fb: string): string {
     try {
@@ -36,7 +45,7 @@ export function SafeSection({ title, children }: { title?: string; children: Rea
     const col = useSafeColors();
     return (
         <View style={{ gap: 6 }}>
-            {title ? <Text style={{ color: col.muted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginLeft: 4 }}>{title}</Text> : null}
+            {title ? <Txt style={{ color: col.muted, fontSize: 12, fontWeight: "700", textTransform: "uppercase", marginLeft: 4 }}>{title}</Txt> : null}
             <View style={{ backgroundColor: col.card, borderRadius: 12, overflow: "hidden" }}>{children}</View>
         </View>
     );
@@ -51,8 +60,8 @@ export function SafeRow({ label, sub, icon, trailing, onPress, danger }: {
             style={{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, gap: 12 }}>
             {icon ? <Image source={icon} style={{ width: 22, height: 22, tintColor: col.muted }} /> : null}
             <View style={{ flex: 1 }}>
-                <Text style={{ color: danger ? col.danger : col.text, fontSize: 16, fontWeight: "600" }}>{label}</Text>
-                {sub ? <Text style={{ color: col.muted, fontSize: 13, marginTop: 2 }}>{sub}</Text> : null}
+                <Txt style={{ color: danger ? col.danger : col.text, fontSize: 16, fontWeight: "600" }}>{label}</Txt>
+                {sub ? <Txt style={{ color: col.muted, fontSize: 13, marginTop: 2 }}>{sub}</Txt> : null}
             </View>
             {trailing}
         </Pressable>
@@ -69,7 +78,7 @@ export function SafeInput({ title, value, onChange, placeholder }: { title: stri
     const col = useSafeColors();
     return (
         <View style={{ paddingVertical: 10, paddingHorizontal: 14, gap: 6 }}>
-            <Text style={{ color: col.muted, fontSize: 13, fontWeight: "600" }}>{title}</Text>
+            <Txt style={{ color: col.muted, fontSize: 13, fontWeight: "600" }}>{title}</Txt>
             <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={col.muted}
                 autoCapitalize="none" autoCorrect={false}
                 style={{ color: col.text, backgroundColor: col.bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 15 }} />
@@ -81,7 +90,7 @@ export function SafeButton({ text, onPress, variant = "primary" }: { text: strin
     const col = useSafeColors();
     return (
         <Pressable onPress={onPress} style={{ backgroundColor: variant === "primary" ? col.accent : col.border, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, alignItems: "center" }}>
-            <Text style={{ color: "#ffffff", fontWeight: "700" }}>{text}</Text>
+            <Txt style={{ color: "#ffffff", fontWeight: "700" }}>{text}</Txt>
         </Pressable>
     );
 }
@@ -93,5 +102,5 @@ export function SafeDivider() {
 
 export function SafeText({ children, muted, style }: { children: ReactNode; muted?: boolean; style?: any }) {
     const col = useSafeColors();
-    return <Text style={[{ color: muted ? col.muted : col.text, fontSize: 14 }, style]}>{children}</Text>;
+    return <Txt style={[{ color: muted ? col.muted : col.text, fontSize: 14 }, style]}>{children}</Txt>;
 }
