@@ -95,6 +95,7 @@ export function Collapse({ title, children, open: initial = false }: { title: st
 /** Mini chat mock-up drawn with the palette, so changes are visible before Discord re-renders. */
 export function Preview({ cfg, bgUrl }: { cfg: Parameters<typeof effective>[0]; bgUrl?: string; }) {
     const p = effective(cfg);
+    const [box, setBox] = React.useState({ width: 0, height: 0 });
     const t = (c: string, s: number, w: any = "400", extra: any = {}) => ({ color: c, fontSize: s, fontWeight: w, ...extra });
     const Msg = ({ name, text, mention }: { name: string; text: React.ReactNode; mention?: boolean; }) => (
         <RN.View style={{
@@ -116,8 +117,14 @@ export function Preview({ cfg, bgUrl }: { cfg: Parameters<typeof effective>[0]; 
                 <Txt style={t(p.header, 14, "700")}>general</Txt>
             </RN.View>
             <RN.View style={{ backgroundColor: p.bg1, paddingVertical: 4 }}>
-                {bgUrl ? <RN.Image source={{ uri: bgUrl }} resizeMode="cover" blurRadius={cfg.bg?.blur ?? 0}
-                    style={[RN.StyleSheet.absoluteFill, { opacity: cfg.bg?.alpha ?? 0.6 }]} /> : null}
+                {bgUrl ? <RN.View style={[RN.StyleSheet.absoluteFill, { overflow: "hidden" }]} onLayout={e => setBox(e.nativeEvent.layout)}>
+                    <RN.Image source={{ uri: bgUrl }} blurRadius={cfg.bg?.blur ?? 0}
+                        resizeMode={cfg.bg?.fit === "contain" || cfg.bg?.fit === "stretch" ? cfg.bg.fit : "cover"}
+                        style={[RN.StyleSheet.absoluteFill, {
+                            opacity: cfg.bg?.alpha ?? 0.6,
+                            transform: [{ translateX: (cfg.bg?.x ?? 0) / 100 * box.width }, { translateY: (cfg.bg?.y ?? 0) / 100 * box.height }, { scale: cfg.bg?.zoom ?? 1 }],
+                        }]} />
+                </RN.View> : null}
                 <Msg name="Nova" text={<>Look at this <Txt style={t(p.link, 13, "400", { textDecorationLine: "underline" })}>link</Txt></>} />
                 <Msg name="Kai" mention text={<><Txt style={{ color: p.accent, backgroundColor: p.accent + "33", fontSize: 13 }}>@you</Txt> new theme?</>} />
                 <Txt style={[t(p.muted, 11), { paddingHorizontal: 10, paddingBottom: 4 }]}>Kai is typing…</Txt>

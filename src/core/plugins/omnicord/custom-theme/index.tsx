@@ -175,7 +175,7 @@ async function pickImage(): Promise<string | undefined> {
 /** Background that makes sense on another phone: the web source, never a local file. */
 const shareableBg = (bg: Cfg["bg"]) => {
     const u = /^https?:/i.test(bg?.source ?? "") ? bg!.source! : /^https?:/i.test(bg?.url ?? "") ? bg!.url : "";
-    return u ? { url: u, blur: bg!.blur, alpha: bg!.alpha } : undefined;
+    return u ? { url: u, blur: bg!.blur, alpha: bg!.alpha, zoom: bg!.zoom, x: bg!.x, y: bg!.y, fit: bg!.fit } : undefined;
 };
 
 function exportOmni(st: S) {
@@ -221,7 +221,7 @@ async function importText(st: S, text: string) {
     } else throw new Error("No colors found in it");
 
     if (o.bg?.url && /^https?:/i.test(o.bg.url)) {
-        st.bg = { ...st.bg, blur: o.bg.blur ?? 0, alpha: o.bg.alpha ?? 0.6 };
+        st.bg = { ...st.bg, blur: o.bg.blur ?? 0, alpha: o.bg.alpha ?? 0.6, zoom: o.bg.zoom ?? 1, x: o.bg.x ?? 0, y: o.bg.y ?? 0, fit: o.bg.fit ?? "cover" };
         await setPicture(st, o.bg.url);
     } else apply(st);
     return o.name as string | undefined;
@@ -453,6 +453,22 @@ export default omniPlugin<S>({
                         onChange={d => nudge({ bg: { ...storage.bg, alpha: Math.round(clamp((storage.bg.alpha ?? 0.6) + d * 0.1, 0.1, 1) * 10) / 10 } })} />
                     <Stepper label="Blur" value={String(storage.bg.blur ?? 0)}
                         onChange={d => nudge({ bg: { ...storage.bg, blur: clamp((storage.bg.blur ?? 0) + d * 2, 0, 25) } })} />
+                    <Stepper label="Zoom" value={`${(storage.bg.zoom ?? 1).toFixed(2)}×`}
+                        onChange={d => nudge({ bg: { ...storage.bg, zoom: Math.round(clamp((storage.bg.zoom ?? 1) + d * 0.25, 1, 5) * 100) / 100 } })} />
+                    <Stepper label="Move left / right" value={`${storage.bg.x ?? 0}%`}
+                        onChange={d => nudge({ bg: { ...storage.bg, x: clamp((storage.bg.x ?? 0) + d * 5, -100, 100) } })} />
+                    <Stepper label="Move up / down" value={`${storage.bg.y ?? 0}%`}
+                        onChange={d => nudge({ bg: { ...storage.bg, y: clamp((storage.bg.y ?? 0) + d * 5, -100, 100) } })} />
+                    <RN.View style={{ flexDirection: "row", gap: 6, paddingHorizontal: 14, paddingBottom: 10, alignItems: "center" }}>
+                        <Txt style={{ color: "#dbdee1", fontSize: 16, flex: 1 }}>Fit</Txt>
+                        {([["cover", "Fill"], ["contain", "Whole"], ["stretch", "Stretch"]] as const).map(([f, l]) => (
+                            <RN.Pressable key={f} onPress={() => nudge({ bg: { ...storage.bg, fit: f } })}
+                                style={{ backgroundColor: (storage.bg.fit ?? "cover") === f ? "#5865f2" : "#4e505888", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
+                                <Txt style={{ color: "#fff", fontSize: 14 }}>{l}</Txt>
+                            </RN.Pressable>
+                        ))}
+                    </RN.View>
+                    <Row label="Reset position" onPress={() => nudge({ bg: { ...storage.bg, zoom: 1, x: 0, y: 0, fit: "cover" } })} />
                     <Row label="Apply background" sub="Web pictures are downloaded into the app so they load offline" onPress={() => /^https?:/i.test(storage.bg.url) ? setPicture(storage, storage.bg.url) : apply(storage)} />
                     {storage.bg.url ? <Row label="Remove background" danger onPress={() => { storage.bg = { ...storage.bg, url: "", source: "" }; apply(storage); }} /> : null}
                 </Collapse>

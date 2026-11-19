@@ -34,6 +34,10 @@ export interface VendettaThemeManifest {
         url: string;
         blur?: number;
         alpha?: number;
+        zoom?: number;
+        x?: number;
+        y?: number;
+        fit?: "cover" | "contain" | "stretch";
     };
 }
 
