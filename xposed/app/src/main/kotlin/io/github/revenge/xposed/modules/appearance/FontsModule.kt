@@ -6,6 +6,7 @@ import android.graphics.Typeface.CustomFallbackBuilder
 import android.graphics.fonts.Font
 import android.graphics.fonts.FontFamily
 import android.os.Build
+import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
@@ -96,6 +97,7 @@ object FontsModule : Module() {
         fontsDownloadsDir = File(appInfo.dataDir, "${Constants.FILES_DIR}/downloads/fonts").apply { asDir() }
         fontsDir = File(fontsDownloadsDir, fontDef.name!!).apply { asDir() }
         fontsAbsPath = fontsDir.absolutePath + "/"
+        hookFrameworkFonts()
 
         fontsDir.listFiles()?.forEach { file ->
             val fileName = file.name
@@ -186,6 +188,66 @@ object FontsModule : Module() {
             return fallbackBuilder.build()
         }
         return null
+    }
+
+    /** "fonts/ggsans-Normal_bold.ttf" -> downloaded replacement file for "ggsans-Normal", if any. */
+    private fun customFile(path: String?): File? {
+        if (path == null || fontsAbsPath == null) return null
+        var key = path.substringAfterLast('/').substringBeforeLast('.')
+        for (suffix in arrayOf("_bold_italic", "_bold", "_italic")) if (key.endsWith(suffix)) { key = key.removeSuffix(suffix); break }
+        return FILE_EXTENSIONS.map { File(fontsDir, "$key$it") }.firstOrNull { it.exists() && it.length() > 0 }
+    }
+
+    /**
+     * Newer Discord builds minify React Native's ReactFontManager, so the createAssetTypeface hook can
+     * miss. Android's own font loaders are never renamed: swap Discord's bundled font files there.
+     */
+    private fun hookFrameworkFonts() {
+        runCatching {
+            XposedHelpers.findAndHookMethod(Typeface::class.java, "createFromAsset", AssetManager::class.java, String::class.java,
+                object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        val f = customFile(param.args[1] as? String) ?: return
+                        runCatching { param.result = Typeface.createFromFile(f) }
+                    }
+                })
+        }.onFailure { Log.e("Failed to hook Typeface.createFromAsset", it) }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val pending = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, File>())
+            runCatching {
+                XposedHelpers.findAndHookConstructor(Typeface.Builder::class.java, AssetManager::class.java, String::class.java,
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            customFile(param.args[1] as? String)?.let { pending[param.thisObject] = it }
+                        }
+                    })
+                XposedHelpers.findAndHookMethod(Typeface.Builder::class.java, "build", object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        val f = pending.remove(param.thisObject) ?: return
+                        runCatching { param.result = Typeface.Builder(f).build() }
+                    }
+                })
+            }.onFailure { Log.e("Failed to hook Typeface.Builder", it) }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val pending = java.util.Collections.synchronizedMap(java.util.WeakHashMap<Any, File>())
+            runCatching {
+                XposedHelpers.findAndHookConstructor(Font.Builder::class.java, AssetManager::class.java, String::class.java,
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            customFile(param.args[1] as? String)?.let { pending[param.thisObject] = it }
+                        }
+                    })
+                XposedHelpers.findAndHookMethod(Font.Builder::class.java, "build", object : XC_MethodHook() {
+                    override fun beforeHookedMethod(param: MethodHookParam) {
+                        val f = pending.remove(param.thisObject) ?: return
+                        runCatching { param.result = Font.Builder(f).build() }
+                    }
+                })
+            }.onFailure { Log.e("Failed to hook Font.Builder", it) }
+        }
     }
 
     private fun createAssetTypeface(

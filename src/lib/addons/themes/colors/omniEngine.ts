@@ -50,6 +50,18 @@ export function installEngine() {
         return orig.apply(internal, args);
     }));
 
+    // Discord's createStyles caches each stylesheet per theme name, so screens styled before a color change
+    // (e.g. the DM list rendered at startup) kept the old colors. Rebuild the cache when our colors change.
+    const Styles = findByProps("createStyles");
+    if (Styles?.createStyles) unpatches.push(instead("createStyles", Styles, (args: any[], orig: any) => {
+        let hook = orig.apply(Styles, args);
+        let seen = version;
+        return function (this: any, ...a: any[]) {
+            if (seen !== version) { seen = version; hook = orig.apply(Styles, args); }
+            return hook.apply(this, a);
+        };
+    }));
+
     // Re-render themed trees when colors change (new key through enabledExperiments).
     const Root = findByProps("RootThemeContextProvider");
     if (Root) unpatches.push(before("RootThemeContextProvider", Root, (args: any[]) => {

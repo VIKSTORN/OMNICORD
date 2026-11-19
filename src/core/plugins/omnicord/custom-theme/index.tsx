@@ -4,7 +4,7 @@ import { colorOwner, installEngine, rawNames, setColors, themeHooks, tokenNames 
 import { parseColorManifest } from "@lib/addons/themes/colors/parser";
 import { _colorRef } from "@lib/addons/themes/colors/updater";
 import { getStoredTheme } from "@lib/api/native/loader";
-import { NativeFileModule } from "@lib/api/native/modules";
+import { BundleUpdaterManager, NativeFileModule } from "@lib/api/native/modules";
 
 import { addQuickActions } from "../shared/quick";
 import { icon, Row, Scroll, Section } from "../shared/ui";
@@ -293,7 +293,7 @@ function Fonts() {
         try {
             await applyFont(name);
             setSel(name);
-            showToast(`${fontLabel(name)}: restart Discord to see it`, icon("check"));
+            showToast(`${fontLabel(name)}: close Discord from recent apps and reopen it`, icon("check"));
         } catch (e: any) { showToast(`Font failed: ${e?.message ?? e}`, icon("Small")); } finally { setBusy(null); }
     };
     return (
@@ -385,7 +385,7 @@ export default omniPlugin<S>({
                     label: fontLabel(n), selected: currentFont() === n,
                     run: async () => {
                         showToast("Setting font…");
-                        try { await applyFont(n); showToast(`${fontLabel(n)}: restart Discord to see it`); } catch (e: any) { showToast(`Font failed: ${e?.message ?? e}`); }
+                        try { await applyFont(n); showToast(`${fontLabel(n)}: close Discord from recent apps and reopen it`); } catch (e: any) { showToast(`Font failed: ${e?.message ?? e}`); }
                     },
                 })),
             }] : []),
@@ -408,6 +408,7 @@ export default omniPlugin<S>({
                     <SafeSwitchRow label="Live apply" sub="Every change shows in Discord right away"
                         value={!!storage.live} onValueChange={v => void (storage.live = v)} />
                     <Row label={storage.enabled ? "Apply again" : "Turn theme on"} onPress={() => apply(storage)} />
+                    <Row label="Reload Discord" sub="Repaints every screen with the theme (takes 2 seconds)" onPress={() => BundleUpdaterManager.reload()} />
                     {storage.enabled ? <Row label="Turn off (Discord default)" danger onPress={() => reset(storage)} /> : null}
                 </Section>
 
