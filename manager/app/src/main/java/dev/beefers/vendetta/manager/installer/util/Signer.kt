@@ -33,12 +33,17 @@ object Signer : KoinComponent {
         val ks = filesDir.resolve("ks.keystore")
         migrate(cacheDir, filesDir)
         migrate(Constants.VENDETTA_DIR, filesDir)
+        // Backup outside the app, so reinstalling the manager keeps the same key for patched Discord
+        // (same signature = Discord updates over the top, no uninstall / re-login).
+        val backup = Constants.VENDETTA_DIR.parentFile?.resolve("Omnicord/ks.keystore")
+        if (!ks.exists() && backup?.exists() == true) runCatching { backup.copyTo(ks, overwrite = true) }
         ks.also {
             if (!it.exists()) {
                 it.createNewFile()
                 newKeystore(it)
             }
         }
+        if (backup != null && !backup.exists()) runCatching { backup.parentFile?.mkdirs(); ks.copyTo(backup) }
         ks
     }
 
