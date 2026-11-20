@@ -175,7 +175,7 @@ async function pickImage(): Promise<string | undefined> {
 /** Background that makes sense on another phone: the web source, never a local file. */
 const shareableBg = (bg: Cfg["bg"]) => {
     const u = /^https?:/i.test(bg?.source ?? "") ? bg!.source! : /^https?:/i.test(bg?.url ?? "") ? bg!.url : "";
-    return u ? { url: u, blur: bg!.blur, alpha: bg!.alpha, zoom: bg!.zoom, x: bg!.x, y: bg!.y, fit: bg!.fit } : undefined;
+    return u ? { url: u, blur: bg!.blur, alpha: bg!.alpha, zoom: bg!.zoom, x: bg!.x, y: bg!.y, fit: bg!.fit, parallax: bg!.parallax, smooth: bg!.smooth } : undefined;
 };
 
 function exportOmni(st: S) {
@@ -468,6 +468,10 @@ export default omniPlugin<S>({
                             </RN.Pressable>
                         ))}
                     </RN.View>
+                    <Stepper label="Touch parallax" value={(storage.bg.parallax ?? 0) ? String(storage.bg.parallax) : "Off"}
+                        onChange={d => nudge({ bg: { ...storage.bg, parallax: clamp((storage.bg.parallax ?? 0) + d, 0, 10) } })} />
+                    <Stepper label="Parallax smoothness" value={String(storage.bg.smooth ?? 5)}
+                        onChange={d => nudge({ bg: { ...storage.bg, smooth: clamp((storage.bg.smooth ?? 5) + d, 1, 10) } })} />
                     <Row label="Reset position" onPress={() => nudge({ bg: { ...storage.bg, zoom: 1, x: 0, y: 0, fit: "cover" } })} />
                     <Row label="Apply background" sub="Web pictures are downloaded into the app so they load offline" onPress={() => /^https?:/i.test(storage.bg.url) ? setPicture(storage, storage.bg.url) : apply(storage)} />
                     {storage.bg.url ? <Row label="Remove background" danger onPress={() => { storage.bg = { ...storage.bg, url: "", source: "" }; apply(storage); }} /> : null}

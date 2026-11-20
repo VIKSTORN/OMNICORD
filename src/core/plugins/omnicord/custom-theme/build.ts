@@ -102,7 +102,7 @@ export function buildTheme(c: Cfg) {
         spec: 2,
         semanticColors,
         rawColors,
-        ...(c.bg?.url ? { background: { url: c.bg.url, blur: c.bg.blur || 0, alpha: c.bg.alpha ?? 0.6, zoom: c.bg.zoom ?? 1, x: c.bg.x ?? 0, y: c.bg.y ?? 0, fit: c.bg.fit ?? "cover" } } : {}),
+        ...(c.bg?.url ? { background: { url: c.bg.url, blur: c.bg.blur || 0, alpha: c.bg.alpha ?? 0.6, zoom: c.bg.zoom ?? 1, x: c.bg.x ?? 0, y: c.bg.y ?? 0, fit: c.bg.fit ?? "cover", parallax: c.bg.parallax ?? 0, smooth: c.bg.smooth ?? 5 } } : {}),
     };
 }
 

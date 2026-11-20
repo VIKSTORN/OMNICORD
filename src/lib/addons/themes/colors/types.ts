@@ -38,6 +38,8 @@ export interface VendettaThemeManifest {
         x?: number;
         y?: number;
         fit?: "cover" | "contain" | "stretch";
+        parallax?: number;
+        smooth?: number;
     };
 }
 

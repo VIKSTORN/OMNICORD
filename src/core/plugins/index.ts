@@ -21,6 +21,7 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "omnicord.voice-send": require("./omnicord/voice-send").default,
     "omnicord.voice-save": require("./omnicord/voice-save").default,
     "omnicord.fake-nitro": require("./omnicord/fake-nitro").default,
+    "omnicord.custom-rpc": require("./omnicord/custom-rpc").default,
     "omnicord.quick-menu": require("./omnicord/quick-menu").default,
 });
 

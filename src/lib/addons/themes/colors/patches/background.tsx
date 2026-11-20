@@ -5,7 +5,8 @@ import { useObservable } from "@lib/api/storage";
 import { findInReactTree } from "@lib/utils";
 import { findByFilePathLazy } from "@metro";
 import chroma from "chroma-js";
-import { ImageBackground, StyleSheet, useWindowDimensions } from "react-native";
+import { useEffect, useRef } from "react";
+import { Animated, Image, StyleSheet, useWindowDimensions, View } from "react-native";
 import { logger } from "@lib/utils/logger";
 
 const Messages = findByFilePathLazy("modules/messages/native/Messages.tsx", true);
@@ -13,29 +14,51 @@ const Messages = findByFilePathLazy("modules/messages/native/Messages.tsx", true
 function ThemeBackground({ children }: { children: React.ReactNode; }) {
     useObservable([colorsPref]);
     const { width, height } = useWindowDimensions();
+    const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+    const bg: any = _colorRef.current?.background;
+    // Omnicord parallax: 0 = off, 1..10 strength; smooth 1..10 (higher = softer, slower).
+    const strength = typeof bg?.parallax === "number" ? bg.parallax : 0;
+    const smooth = typeof bg?.smooth === "number" ? bg.smooth : 5;
+    useEffect(() => () => pan.stopAnimation(), []);
 
     if (!_colorRef.current
         || colorsPref.customBackground === "hidden"
-        || !_colorRef.current.background?.url
-        || _colorRef.current.background?.blur && (typeof _colorRef.current.background?.blur !== "number")
+        || !bg?.url
+        || bg?.blur && (typeof bg?.blur !== "number")
     ) {
         return children;
     }
 
     // Omnicord: zoom / position / fit (x, y in % of the screen, zoom ≥ 1).
-    const bg: any = _colorRef.current.background;
     const zoom = typeof bg.zoom === "number" ? bg.zoom : 1;
     const tx = (typeof bg.x === "number" ? bg.x : 0) / 100 * width;
     const ty = (typeof bg.y === "number" ? bg.y : 0) / 100 * height;
-    return <ImageBackground
-        style={{ flex: 1, height: "100%", overflow: "hidden" }}
-        source={{ uri: bg.url }}
-        blurRadius={bg.blur}
-        resizeMode={bg.fit === "contain" || bg.fit === "stretch" ? bg.fit : "cover"}
-        imageStyle={zoom !== 1 || tx || ty ? { transform: [{ translateX: tx }, { translateY: ty }, { scale: zoom }] } : undefined}
-    >
+    const range = strength * 6; // max shift in px
+    const extra = range ? 1 + (2 * range) / Math.max(1, Math.min(width, height)) : 1;
+    const go = (x: number, y: number) => Animated.spring(pan, {
+        toValue: { x, y }, useNativeDriver: true,
+        friction: 4 + smooth * 1.6, tension: Math.max(8, 60 - smooth * 5),
+    }).start();
+    const touch = range ? {
+        onTouchStart: (e: any) => go((e.nativeEvent.pageX / width - 0.5) * 2 * range, (e.nativeEvent.pageY / height - 0.5) * 2 * range),
+        onTouchMove: (e: any) => go((e.nativeEvent.pageX / width - 0.5) * 2 * range, (e.nativeEvent.pageY / height - 0.5) * 2 * range),
+        onTouchEnd: () => go(0, 0),
+        onTouchCancel: () => go(0, 0),
+    } : {};
+
+    return <View style={{ flex: 1, height: "100%", overflow: "hidden" }} {...touch}>
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
+            transform: [{ translateX: tx }, { translateY: ty }, { translateX: pan.x }, { translateY: pan.y }, { scale: zoom * extra }],
+        }]}>
+            <Image
+                style={StyleSheet.absoluteFill}
+                source={{ uri: bg.url }}
+                blurRadius={bg.blur}
+                resizeMode={bg.fit === "contain" || bg.fit === "stretch" ? bg.fit : "cover"}
+            />
+        </Animated.View>
         {children}
-    </ImageBackground>;
+    </View>;
 }
 
 export default function patchChatBackground() {
