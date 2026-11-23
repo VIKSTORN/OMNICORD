@@ -3,6 +3,14 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 35, date: "2026-11-23", title: "Cleaner What's new",
+        items: [
+            "Change: What's new is now a Discord-style bottom sheet (dark, rounded, Discord font)",
+            "Change: colored New / Fix / Change tags",
+            "Change: Changelog page uses the same cards",
+        ],
+    },
+    {
         v: 34, date: "2026-11-23", title: "Ω toggles",
         items: [
             "New: Ω menu switches for Silent Typing, Fake Deafen, No Reply Mention, Hide Blocked, Anonymise File Names, Clear URLs, Ghost Ping and Keyword alerts",
@@ -105,3 +113,10 @@ export const CHANGELOG: ChangelogEntry[] = [
 ];
 
 export const latestVersion = CHANGELOG[0].v;
+
+// "What's new" popup state (rendered by the Ω overlay, styled like Discord instead of a stock Android dialog).
+let pending: ChangelogEntry[] | null = null;
+const listeners = new Set<() => void>();
+export const getWhatsNew = () => pending;
+export const subscribeWhatsNew = (l: () => void) => (listeners.add(l), () => void listeners.delete(l));
+export const showWhatsNew = (e: ChangelogEntry[] | null) => { pending = e?.length ? e : null; listeners.forEach(l => l()); };

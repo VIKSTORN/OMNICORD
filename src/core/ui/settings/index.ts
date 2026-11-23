@@ -6,8 +6,7 @@ import { isFontSupported, isThemeSupported } from "@lib/api/native/loader";
 import { settings } from "@lib/api/settings";
 import { registerSection } from "@ui/settings";
 import { version } from "bunny-build-info";
-import { CHANGELOG, latestVersion } from "@core/changelog";
-import { Alert } from "react-native";
+import { CHANGELOG, latestVersion, showWhatsNew } from "@core/changelog";
 
 export { PupuIcon };
 
@@ -74,12 +73,7 @@ export default function initSettings() {
             if (seen >= latestVersion) return;
             s.omniChangelogSeen = latestVersion;
             const fresh = CHANGELOG.filter(e => e.v > seen).slice(0, 3);
-            Alert.alert(
-                `Omnicord updated to release ${latestVersion}`,
-                fresh.map(e => `Release ${e.v}: ${e.title}\n${e.items.map(i => `• ${i}`).join("\n")}`).join("\n\n")
-                    + "\n\nFull list: Settings → Changelog",
-                [{ text: "Nice" }],
-            );
+            showWhatsNew(fresh);
         } catch { }
     }, 4000);
 

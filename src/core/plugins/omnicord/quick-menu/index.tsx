@@ -3,6 +3,7 @@ import { Txt } from "@core/ui/components/SafeUI";
 // Injected with AppRegistry.setWrapperComponentProvider (RN primitives only, no Discord components).
 import { useSafeColors } from "@core/ui/components/SafeUI";
 
+import { WhatsNew } from "./WhatsNew";
 import { addQuickActions, closeQuickMenu, getMenuState, getQuickActions, openQuickMenu, QuickAction, str, subscribeQuick } from "../shared/quick";
 import { Scroll, Section, Switch } from "../shared/ui";
 import { getAssetIDByName, logger, omniPlugin, React, ReactNative as RN, showToast, useProxy } from "../vd";
@@ -181,6 +182,7 @@ function install() {
                 <RN.View style={{ flex: 1 }}>
                     {W ? <W {...rest}>{children}</W> : children}
                     <Guard><Bubble /></Guard>
+                    <Guard><WhatsNew /></Guard>
                 </RN.View>
             );
         };
