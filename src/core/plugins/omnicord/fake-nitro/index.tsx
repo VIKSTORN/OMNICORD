@@ -51,7 +51,9 @@ function rewriteEmojis(s: S, msg: any, channelId: string) {
         return " ";
     }).trim();
     if (!links.length) return;
-    msg.content = [msg.content, ...links].filter(Boolean).join(" ");
+    // A message that is only one picture link shows just the picture (Discord hides the url).
+    if (!msg.content && links.length === 1) { msg.content = links[0].replace(/^\[[^\]]*\]\((.*)\)$/, "$1"); }
+    else msg.content = [msg.content, ...links].filter(Boolean).join(" ");
     if (Array.isArray(msg.validNonShortcutEmojis))
         msg.validNonShortcutEmojis = msg.validNonShortcutEmojis.filter((e: any) => canReallyUse(e, guildId));
 }
@@ -101,7 +103,9 @@ export default omniPlugin<S>({
         // ---- stickers: send the ones you can't use as links ----
         const StickerSender = MessageActions?.sendStickers ? MessageActions : findByProps("sendStickers");
         if (StickerSender) patches.push(instead("sendStickers", StickerSender, (args: any[], orig: any) => {
-            const [channelId, ids = [], content = ""] = args;
+            const [channelId, ids = []] = args;
+            // 3rd arg is the typed text on some versions, an options object on others.
+            const content = typeof args[2] === "string" ? args[2].trim() : "";
             if (!s.stickers || hasNitro()) return orig(...args);
             const stickers = ids.map((id: string) => StickersStore()?.getStickerById?.(id) ?? { id });
             const unusable = stickers.filter((st: any) => {
@@ -112,7 +116,8 @@ export default omniPlugin<S>({
             for (const st of unusable) {
                 const ext = STICKER_EXT[st.format_type ?? 1];
                 if (!ext) { showToast(`"${st.name ?? "Sticker"}" is an animated Lottie sticker: can't be sent as a link`); continue; }
-                links.push(link(s, st.name ?? "sticker", `https://media.discordapp.net/stickers/${st.id}.${ext}?size=160&name=${encodeURIComponent(st.name ?? "sticker")}`));
+                // Bare url: Discord shows only the sticker picture, no link text.
+                links.push(`https://media.discordapp.net/stickers/${st.id}.${ext}?size=160`);
             }
             const usable = ids.filter((id: string) => !unusable.some((u: any) => u.id === id));
             if (usable.length) orig(channelId, usable, content, ...args.slice(3));
