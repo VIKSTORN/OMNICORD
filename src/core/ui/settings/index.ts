@@ -6,6 +6,8 @@ import { isFontSupported, isThemeSupported } from "@lib/api/native/loader";
 import { settings } from "@lib/api/settings";
 import { registerSection } from "@ui/settings";
 import { version } from "bunny-build-info";
+import { CHANGELOG, latestVersion } from "@core/changelog";
+import { Alert } from "react-native";
 
 export { PupuIcon };
 
@@ -20,6 +22,13 @@ export default function initSettings() {
                 icon: { uri: PupuIcon },
                 render: () => import("@core/ui/settings/pages/General"),
                 useTrailing: () => `(${version})`
+            },
+            {
+                key: "OMNICORD_CHANGELOG",
+                title: () => "Changelog",
+                icon: findAssetId("ClockIcon") ?? findAssetId("ic_history_24px") ?? findAssetId("CircleInformationIcon-primary"),
+                render: () => import("@core/ui/settings/pages/Changelog"),
+                useTrailing: () => `R${latestVersion}`
             },
             {
                 key: "BUNNY_PLUGINS",
@@ -56,6 +65,23 @@ export default function initSettings() {
             }
         ]
     });
+
+    // "What's new" once after each update.
+    setTimeout(() => {
+        try {
+            const s = settings as any;
+            const seen = Number(s.omniChangelogSeen ?? latestVersion - 1);
+            if (seen >= latestVersion) return;
+            s.omniChangelogSeen = latestVersion;
+            const fresh = CHANGELOG.filter(e => e.v > seen).slice(0, 3);
+            Alert.alert(
+                `Omnicord updated to release ${latestVersion}`,
+                fresh.map(e => `Release ${e.v}: ${e.title}\n${e.items.map(i => `• ${i}`).join("\n")}`).join("\n\n")
+                    + "\n\nFull list: Settings → Changelog",
+                [{ text: "Nice" }],
+            );
+        } catch { }
+    }, 4000);
 
     // Compat with Bunny Plugins that use configs in settings
     registerSection({

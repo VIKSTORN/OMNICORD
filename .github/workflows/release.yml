@@ -71,6 +71,10 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - name: Release notes from changelog
+        run: |
+          { node scripts/changelog-notes.mjs || true; echo; echo "Install: download **OmnicordManager.apk**, open it, tap Install. Bundle and module update automatically."; } > notes.md
       - uses: actions/download-artifact@v4
         with: { path: out, merge-multiple: true }
       - uses: softprops/action-gh-release@v2
@@ -78,9 +82,7 @@ jobs:
           tag_name: "${{ env.OMNICORD_BUILD }}"
           name: "Omnicord build ${{ env.OMNICORD_BUILD }}"
           make_latest: true
-          body: |
-            Install: download **OmnicordManager.apk**, open it, tap Install.
-            Bundle and module update automatically from this release.
+          body_path: notes.md
           files: |
             out/omnicord.js
             out/omnicord.min.js
