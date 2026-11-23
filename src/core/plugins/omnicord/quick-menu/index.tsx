@@ -3,7 +3,7 @@ import { Txt } from "@core/ui/components/SafeUI";
 // Injected with AppRegistry.setWrapperComponentProvider (RN primitives only, no Discord components).
 import { useSafeColors } from "@core/ui/components/SafeUI";
 
-import { closeQuickMenu, getMenuState, getQuickActions, openQuickMenu, QuickAction, str, subscribeQuick } from "../shared/quick";
+import { addQuickActions, closeQuickMenu, getMenuState, getQuickActions, openQuickMenu, QuickAction, str, subscribeQuick } from "../shared/quick";
 import { Scroll, Section, Switch } from "../shared/ui";
 import { getAssetIDByName, logger, omniPlugin, React, ReactNative as RN, showToast, useProxy } from "../vd";
 
@@ -194,6 +194,35 @@ function install() {
 // Install at load (before Discord's app starts) so the menu also works when the bubble is off.
 try { install(); } catch (e) { logger.error("Quick menu install failed", e); }
 
+// On/off switches for whole plugins, so they work from Ω even while the plugin is off.
+const TOGGLES: [id: string, label: string, sub: string, icon: string[]][] = [
+    ["silent-typing", "Silent typing", "Nobody sees you typing", ["EyeSlashIcon", "ic_eye_slash", "PencilIcon"]],
+    ["fake-deafen", "Fake deafen", "Look muted + deafened, still hear", ["HeadphonesSlashIcon", "ic_headset_deafen", "HeadphonesIcon"]],
+    ["no-reply-mention", "No reply ping", "Replies don't ping", ["ReplyIcon", "ic_reply_24px", "AtIcon"]],
+    ["hide-blocked", "Hide blocked messages", "Re-open the chat after", ["BlockIcon", "ic_block", "DenyIcon"]],
+    ["anonymise-files", "Anonymise file names", "Random names on uploads", ["AttachmentIcon", "ic_attachment_white_24dp", "FileIcon"]],
+    ["clear-urls", "Clear URLs", "Strip tracking from links", ["LinkIcon", "ic_link_24px"]],
+    ["ghost-ping", "Ghost ping alerts", "Toast on deleted pings", ["BellIcon", "ic_notifications_24px"]],
+    ["keyword-notify", "Keyword alerts", "Toast on your keywords", ["BellIcon", "ic_notifications_24px"]],
+];
+let untoggles: (() => void) | undefined;
+function registerToggles() {
+    // Lazy require: the plugin manager also loads this file.
+    const P = require("@lib/addons/plugins");
+    const full = (id: string) => `omnicord.${id}`;
+    untoggles = addQuickActions(...TOGGLES.map(([id, label, sub, icon], i) => ({
+        id: `toggle-${id}`, order: 80 + i, keepOpen: true, icon, label,
+        sub: () => P.isPluginEnabled(full(id)) ? sub : "Off",
+        toggled: () => P.isPluginEnabled(full(id)),
+        run: async () => {
+            try {
+                if (!P.isPluginInstalled(full(id))) return showToast(`${label}: update Omnicord first`);
+                if (P.isPluginEnabled(full(id))) P.disablePlugin(full(id)); else await P.enablePlugin(full(id), true);
+            } catch (e) { logger.error(e); showToast(`${label}: couldn't switch`); }
+        },
+    })));
+}
+
 export default omniPlugin<S>({
     id: "quick-menu",
     name: "Quick Menu",
@@ -204,8 +233,9 @@ export default omniPlugin<S>({
         store = s;
         if (!installed) showToast("Quick Menu: restart Discord to show the Ω button");
         setEnabled(true);
+        try { registerToggles(); } catch (e) { logger.error("quick toggles", e); }
     },
-    stop() { setEnabled(false); },
+    stop() { setEnabled(false); untoggles?.(); },
     Settings({ storage }) {
         useProxy(storage);
         const col = useSafeColors();

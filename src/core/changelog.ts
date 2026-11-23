@@ -3,6 +3,14 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 34, date: "2026-11-23", title: "Ω toggles",
+        items: [
+            "New: Ω menu switches for Silent Typing, Fake Deafen, No Reply Mention, Hide Blocked, Anonymise File Names, Clear URLs, Ghost Ping and Keyword alerts",
+            "Change: they turn the whole plugin on/off, no need to enable it in Settings first",
+            "Change: Fake Deafen is active while the plugin is on",
+        ],
+    },
+    {
         v: 33, date: "2026-11-23", title: "Changelog",
         items: [
             "New: Changelog page in Settings → Omnicord",
