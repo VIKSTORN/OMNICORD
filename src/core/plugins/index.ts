@@ -28,6 +28,12 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "omnicord.anonymise-files": require("./omnicord/ports/anonymise-files").default,
     "omnicord.view-raw": require("./omnicord/ports/view-raw").default,
     "omnicord.show-me-your-name": require("./omnicord/ports/show-me-your-name").default,
+    "omnicord.hide-blocked": require("./omnicord/ports/hide-blocked").default,
+    "omnicord.fake-deafen": require("./omnicord/ports/fake-deafen").default,
+    "omnicord.relationship-notifier": require("./omnicord/ports/relationship-notifier").default,
+    "omnicord.ghost-ping": require("./omnicord/ports/ghost-ping").default,
+    "omnicord.keyword-notify": require("./omnicord/ports/keyword-notify").default,
+    "omnicord.message-tags": require("./omnicord/ports/message-tags").default,
     "omnicord.quick-menu": require("./omnicord/quick-menu").default,
 });
 
