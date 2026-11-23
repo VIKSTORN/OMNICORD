@@ -22,6 +22,12 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "omnicord.voice-save": require("./omnicord/voice-save").default,
     "omnicord.fake-nitro": require("./omnicord/fake-nitro").default,
     "omnicord.custom-rpc": require("./omnicord/custom-rpc").default,
+    "omnicord.silent-typing": require("./omnicord/ports/silent-typing").default,
+    "omnicord.no-reply-mention": require("./omnicord/ports/no-reply-mention").default,
+    "omnicord.clear-urls": require("./omnicord/ports/clear-urls").default,
+    "omnicord.anonymise-files": require("./omnicord/ports/anonymise-files").default,
+    "omnicord.view-raw": require("./omnicord/ports/view-raw").default,
+    "omnicord.show-me-your-name": require("./omnicord/ports/show-me-your-name").default,
     "omnicord.quick-menu": require("./omnicord/quick-menu").default,
 });
 
