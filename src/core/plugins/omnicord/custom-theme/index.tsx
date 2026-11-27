@@ -241,12 +241,13 @@ async function importFrom(st: S, source: "clipboard" | string) {
 // ---------- settings pieces ----------
 
 const GRADS: [string, string, string, string][] = [
-    ["Sunset", "#ff7e5f", "#feb47b", "#6a3093"], ["Ocean", "#0f2027", "#2c5364", "#00b4d8"], ["Aurora", "#00c9a7", "#845ec2", "#0d0221"],
-    ["Fire", "#f12711", "#f5af19", ""], ["Night", "#0f0c29", "#302b63", "#24243e"], ["Candy", "#ff8fb1", "#a18cd1", "#fbc2eb"],
+    ["Dusk", "#1a1b2e", "#3a2a4f", "#0d0d16"], ["Deep sea", "#04111d", "#0b3a4a", "#020a12"], ["Ember", "#1a0b0b", "#3d1414", "#0b0505"],
+    ["Aurora", "#06141b", "#0f3b3a", "#1d1036"], ["Plum", "#1c0f24", "#3b1d4a", "#0e0812"], ["Forest", "#0b1710", "#1d3a26", "#060d08"],
+    ["Sunset", "#2b1028", "#7a2e3a", "#f0884f"], ["Candy", "#2a1830", "#6b3a7a", "#c98bd6"], ["Mono", "#000000", "#1e1f22", "#000000"],
 ];
 type Grad = NonNullable<NonNullable<Cfg["bg"]>["grad"]>;
 function Gradient({ storage, onChange }: { storage: S; onChange: (g: Grad) => void; }) {
-    const g: Grad = storage.bg.grad ?? { on: false, c1: "#5865f2", c2: "#000000", c3: "", dir: "v", alpha: 0.5 };
+    const g: Grad = storage.bg.grad ?? { on: false, c1: "#1a1b2e", c2: "#3a2a4f", c3: "#0d0d16", dir: "v", alpha: 0.35 };
     const set = (patch: Partial<Grad>) => onChange({ ...g, ...patch });
     return (
         <>
@@ -272,8 +273,8 @@ function Gradient({ storage, onChange }: { storage: S; onChange: (g: Grad) => vo
                         </RN.Pressable>
                     ))}
                 </RN.View>
-                {storage.bg.url ? <Stepper label="Gradient strength over picture" value={`${Math.round((g.alpha ?? 0.5) * 100)}%`}
-                    onChange={d => set({ alpha: Math.round(clamp((g.alpha ?? 0.5) + d * 0.1, 0.1, 1) * 10) / 10 })} /> : null}
+                <Stepper label={storage.bg.url ? "Gradient strength over picture" : "Gradient strength"} value={`${Math.round((g.alpha ?? (storage.bg.url ? 0.35 : 1)) * 100)}%`}
+                    onChange={d => set({ alpha: Math.round(clamp((g.alpha ?? (storage.bg.url ? 0.35 : 1)) + d * 0.05, 0.05, 1) * 100) / 100 })} />
             </> : null}
         </>
     );

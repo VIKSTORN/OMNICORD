@@ -8,14 +8,15 @@ import { after, findByName, findByStoreName, omniPlugin, ReactNative as RN, useP
 type Rule = { on: boolean; color: string; alpha: number; bar: boolean; };
 const rule = (on: boolean, color: string, alpha = 14): Rule => ({ on, color, alpha, bar: false });
 const defaults = {
-    mine: rule(true, "#5865f2", 10),
-    mention: rule(true, "#f0b232", 16),
+    mine: rule(false, "#5865f2", 6),
+    mention: rule(true, "#f0b232", 10),
     friends: rule(false, "#23a55a", 8),
     users: rule(false, "#eb459e", 14), userList: "",
     keywords: rule(false, "#00b4d8", 14), keywordList: "",
     hideNames: false,   // avatar only, no name line (experimental)
     namesDmOnly: true,  // …only in DMs / group DMs
     v2: false,
+    v3: false,
 };
 type S = typeof defaults;
 const HEX = /^#([0-9a-f]{6})$/i;
@@ -27,6 +28,7 @@ export default omniPlugin<S>({
     description: "Soft color glow on your messages, mentions, friends, chosen people, keywords · avatar-only chat",
     defaults,
     start(s) {
+        if (!s.v3) { s.mine = { ...s.mine, on: false, alpha: Math.min(s.mine.alpha, 6) }; s.v3 = true; }
         if (!s.v2) { for (const k of ["mine", "mention", "friends", "users", "keywords"] as const) s[k] = { ...s[k], bar: false }; s.v2 = true; }
         const RowManager = findByName("RowManager");
         const US = findByStoreName("UserStore");
@@ -101,7 +103,7 @@ export default omniPlugin<S>({
         };
         return (
             <Scroll>
-                <Txt style={{ color: "#949ba4", fontSize: 12, paddingHorizontal: 4 }}>New colors show on messages as they load (re-open the chat).</Txt>
+                <Txt style={{ color: "#949ba4", fontSize: 12, paddingHorizontal: 4 }}>Discord only lets a message row take one flat color, so keep the strength low (4–8%) for a subtle look. Re-open the chat to see changes.</Txt>
                 <Section title="Chat style">
                     <RN.View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10 }}>
                         <RN.View style={{ flex: 1 }}>

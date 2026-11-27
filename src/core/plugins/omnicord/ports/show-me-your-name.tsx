@@ -21,7 +21,7 @@ export default omniPlugin<S>({
             if (data?.rowType !== 1) return;
             const m = row?.message, author = data.message?.author;
             if (!m || !author) return;
-            if (s.username && typeof m.username === "string" && author.username && !m.username.includes(`@${author.username}`)
+            if (s.username && typeof m.username === "string" && m.username && author.username && !m.username.includes(`@${author.username}`)
                 && m.username.toLowerCase() !== author.username.toLowerCase())
                 m.username = `${m.username} (@${author.username})`;
             if ((s.seconds || s.fullDate || (s.clock ?? "auto") !== "auto") && typeof m.timestamp === "string") {

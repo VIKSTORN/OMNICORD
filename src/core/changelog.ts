@@ -3,6 +3,15 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 40, date: "2026-11-27", title: "Smoother gradients",
+        items: [
+            "Fix: gradient had visible stripes, now one smooth image with soft blending",
+            "Change: 9 subtler gradient presets, strength setting (also without a picture)",
+            "Change: Message Highlights softer by default, My messages off",
+            "Fix: Show Me Your Name no longer brings back names hidden by avatar-only chat",
+        ],
+    },
+    {
         v: 39, date: "2026-11-27", title: "Avatar-only chat in DMs",
         items: ["Change: avatar-only chat (hide names) applies only in DMs by default, with a switch for servers too"],
     },

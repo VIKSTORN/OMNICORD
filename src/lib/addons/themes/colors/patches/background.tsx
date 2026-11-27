@@ -8,32 +8,27 @@ import chroma from "chroma-js";
 import { useEffect, useRef } from "react";
 import { Animated, Image, StyleSheet, useWindowDimensions, View } from "react-native";
 import { logger } from "@lib/utils/logger";
+import { gradientUri } from "@lib/utils/gradientPng";
 
 const Messages = findByFilePathLazy("modules/messages/native/Messages.tsx", true);
 
-/** Omnicord gradient: stacked color bands (no native gradient view in RN core). */
-function Gradient({ g, solo, w, h }: { g: any; solo: boolean; w: number; h: number; }) {
-    const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+/** Omnicord gradient: a tiny generated PNG stretched over the screen (smooth, no bands). */
+const gradCache = new Map<string, string>();
+function Gradient({ g, solo }: { g: any; solo: boolean; w?: number; h?: number; }) {
+    const HEX = /^#([0-9a-f]{6})$/i;
     const stops = [g.c1, g.c2, g.c3].filter((c: string) => typeof c === "string" && HEX.test(c));
     if (stops.length < 2) return null;
-    const N = 48;
-    let colors: string[];
-    try { colors = chroma.scale(stops).mode("lch").colors(N); } catch { return null; }
-    const opacity = solo ? 1 : (typeof g.alpha === "number" ? g.alpha : 0.5);
-    const horizontal = g.dir === "h";
-    const diag = g.dir === "d";
-    const side = Math.ceil(Math.hypot(w, h));
-    return (
-        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity, overflow: "hidden" }]}>
-            <View style={diag
-                ? { position: "absolute", width: side, height: side, left: (w - side) / 2, top: (h - side) / 2, transform: [{ rotate: "-45deg" }] }
-                : StyleSheet.absoluteFill}>
-                <View style={{ flex: 1, flexDirection: horizontal ? "row" : "column" }}>
-                    {colors.map((c, i) => <View key={i} style={{ flex: 1, backgroundColor: c, marginBottom: horizontal ? 0 : -0.5, marginRight: horizontal ? -0.5 : 0 }} />)}
-                </View>
-            </View>
-        </View>
-    );
+    const dir = g.dir === "h" || g.dir === "d" ? g.dir : "v";
+    const key = stops.join() + dir;
+    let uri = gradCache.get(key);
+    if (!uri) {
+        try {
+            uri = gradientUri(stops.map((c: string) => chroma(c).rgb() as [number, number, number]), dir);
+            gradCache.set(key, uri);
+        } catch { return null; }
+    }
+    const opacity = solo ? (typeof g.alpha === "number" ? Math.max(0.3, g.alpha) : 1) : (typeof g.alpha === "number" ? g.alpha : 0.35);
+    return <Image source={{ uri }} resizeMode="stretch" fadeDuration={0} style={[StyleSheet.absoluteFill, { opacity, width: "100%", height: "100%" }]} />;
 }
 
 const HEXC = /^#([0-9a-f]{6})$/i;
