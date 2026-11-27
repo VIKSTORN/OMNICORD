@@ -5,10 +5,11 @@ import { useSafeColors } from "@core/ui/components/SafeUI";
 
 import { WhatsNew } from "./WhatsNew";
 import { addQuickActions, closeQuickMenu, getMenuState, getQuickActions, openQuickMenu, QuickAction, str, subscribeQuick } from "../shared/quick";
-import { Scroll, Section, Switch } from "../shared/ui";
+import { Input, Scroll, Section, Switch } from "../shared/ui";
 import { getAssetIDByName, logger, omniPlugin, React, ReactNative as RN, showToast, useProxy } from "../vd";
 
-const defaults = { show: true, x: -1, y: 0.55, size: 30, opacity: 0.9, side: "right", v2: false, v3: false };
+const defaults = { show: true, x: -1, y: 0.55, size: 30, opacity: 0.9, side: "right", v2: false, v3: false,
+    symbol: "Ω", bg: "#000000", fg: "#ffffff", border: true, shape: "tab" as "tab" | "circle" | "square" };
 type S = typeof defaults;
 
 let store: S | undefined;
@@ -143,19 +144,26 @@ function BubbleInner({ s }: { s: S; }) {
     if (!s.show) return null;
     const left = s.side === "left";
 
-    // Slim tab docked to the screen edge: covers almost nothing, drag to move it up/down or to the other side.
+    const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+    const bg = HEX.test(s.bg ?? "") ? s.bg : "#000000";
+    const fg = HEX.test(s.fg ?? "") ? s.fg : "#ffffff";
+    const bw = s.border === false ? 0 : 1.5;
+    const shape = s.shape ?? "tab";
+    // Tab docked to the screen edge (default), or a floating circle / rounded square.
+    const box: any = shape === "tab" ? {
+        width: tabW, height: tabH,
+        borderTopLeftRadius: left ? 0 : tabH / 2, borderBottomLeftRadius: left ? 0 : tabH / 2,
+        borderTopRightRadius: left ? tabH / 2 : 0, borderBottomRightRadius: left ? tabH / 2 : 0,
+        borderWidth: bw, borderLeftWidth: left ? 0 : bw, borderRightWidth: left ? bw : 0,
+    } : { width: tabW, height: tabW, borderRadius: shape === "circle" ? tabW / 2 : tabW * 0.28, borderWidth: bw };
     return (
         <RN.View pointerEvents="box-none" style={RN.StyleSheet.absoluteFill}>
             <RN.Animated.View {...pan.panHandlers} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{
                 position: "absolute", left: 0, top: 0, transform: pos.getTranslateTransform(),
-                width: tabW, height: tabH, opacity: s.opacity ?? 0.9,
-                backgroundColor: "#000000", borderColor: "#ffffff", borderWidth: 1.5,
-                borderTopLeftRadius: left ? 0 : tabH / 2, borderBottomLeftRadius: left ? 0 : tabH / 2,
-                borderTopRightRadius: left ? tabH / 2 : 0, borderBottomRightRadius: left ? tabH / 2 : 0,
-                borderLeftWidth: left ? 0 : 1.5, borderRightWidth: left ? 1.5 : 0,
-                alignItems: "center", justifyContent: "center", elevation: 6,
+                opacity: s.opacity ?? 0.9, backgroundColor: bg, borderColor: fg,
+                alignItems: "center", justifyContent: "center", elevation: 6, ...box,
             }}>
-                <Txt style={{ color: "#ffffff", fontSize: size * 0.55, fontWeight: "800", marginLeft: left ? -2 : 2 }}>Ω</Txt>
+                <Txt style={{ color: fg, fontSize: size * ((s.symbol ?? "Ω").length > 1 ? 0.38 : 0.55), fontWeight: "800", marginLeft: shape !== "tab" ? 0 : left ? -2 : 2 }}>{(s.symbol || "Ω").slice(0, 3)}</Txt>
             </RN.Animated.View>
         </RN.View>
     );
@@ -259,6 +267,28 @@ export default omniPlugin<S>({
                     <Switch store={storage} k="show" label="Show Ω tab" sub="Tap = actions, drag = move (snaps to left/right edge)" />
                     <Stepper label="Size" k="size" d={4} min={24} max={64} />
                     <Stepper label="Opacity" k="opacity" d={0.1} min={0.3} max={1} />
+                </Section>
+                <Section title="Look">
+                    <RN.View style={{ flexDirection: "row", gap: 6, padding: 12 }}>
+                        {([["tab", "Edge tab"], ["circle", "Circle"], ["square", "Square"]] as const).map(([k, l]) => (
+                            <RN.Pressable key={k} onPress={() => void (storage.shape = k)}
+                                style={{ backgroundColor: (storage.shape ?? "tab") === k ? "#5865f2" : col.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
+                                <Txt style={{ color: "#fff", fontSize: 14 }}>{l}</Txt>
+                            </RN.Pressable>
+                        ))}
+                    </RN.View>
+                    <Input store={storage} k="symbol" title="Symbol (1 to 3 characters)" placeholder="Ω" />
+                    <Input store={storage} k="bg" title="Background color (hex)" placeholder="#000000" />
+                    <Input store={storage} k="fg" title="Symbol + border color (hex)" placeholder="#ffffff" />
+                    <Switch store={storage} k="border" label="Border" />
+                    <RN.View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, padding: 12 }}>
+                        {([["Classic", "#000000", "#ffffff"], ["Light", "#ffffff", "#000000"], ["Blurple", "#5865f2", "#ffffff"], ["Red", "#da373c", "#ffffff"], ["Mint", "#23a55a", "#ffffff"], ["Ghost", "#00000055", "#ffffffaa"]] as const).map(([n, b, f]) => (
+                            <RN.Pressable key={n} onPress={() => { storage.bg = b; storage.fg = f; }}
+                                style={{ backgroundColor: b, borderColor: f, borderWidth: 1.5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                                <Txt style={{ color: f, fontSize: 13 }}>{n}</Txt>
+                            </RN.Pressable>
+                        ))}
+                    </RN.View>
                 </Section>
             </Scroll>
         );

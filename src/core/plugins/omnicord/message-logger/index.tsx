@@ -45,6 +45,7 @@ export default omniPlugin<S>({
                 if (typeof m?.content !== "string") return;
                 const old = ChannelMessages.get(m.channel_id)?.get(m.id);
                 if (ignored(old ?? m)) return;
+                if ((old ?? m)?.author?.id === UserStore.getCurrentUser()?.id) return; // own edits: no history in the edit box
                 const prev = real.get(m.id) ?? old?.content;
                 if (prev == null || prev === m.content) {
                     if (history.has(m.id)) m.content = withHistory(m.id, m.content);
@@ -54,6 +55,20 @@ export default omniPlugin<S>({
                 real.set(m.id, m.content);
                 m.content = withHistory(m.id, m.content);
             }
+        }));
+
+        const strip = (t: unknown) => typeof t === "string" ? t.split("\n").filter(l => !l.startsWith("-# ✏️ ")).join("\n").trimEnd() : t;
+        const MA = findByProps("editMessage", "sendMessage") ?? findByProps("editMessage");
+        if (MA) patches.push(before("editMessage", MA, (args: any[]) => {
+            const id = args[1], msg = args[2];
+            if (msg && typeof msg.content === "string") msg.content = strip(msg.content);
+            if (id && history.has(id)) { history.delete(id); real.delete(id); }
+        }));
+        const Edit = findByProps("startEditMessage");
+        if (Edit) patches.push(before("startEditMessage", Edit, (args: any[]) => {
+            const id = args[1];
+            if (typeof args[2] === "string") args[2] = real.get(id) ?? strip(args[2]);
+            return args;
         }));
 
         patches.push(after("generate", RowManager.prototype, ([data]: any[], row: any) => {

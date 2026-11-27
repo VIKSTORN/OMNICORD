@@ -27,6 +27,7 @@ const defaults = {
     rawOverrides: {} as Record<string, string>,
     saved: {} as Record<string, Cfg>,
     live: true,
+    schedule: { on: false, day: "Light", night: "AMOLED", dayAt: "08:00", nightAt: "20:00" },
 };
 type S = typeof defaults;
 
@@ -334,6 +335,60 @@ function Library({ storage }: { storage: S; }) {
     );
 }
 
+// ---------- day / night schedule ----------
+const minutes = (t: string) => { const m = /^(\d{1,2})[:h](\d{2})$/.exec(t.trim()); return m ? (+m[1] % 24) * 60 + (+m[2] % 60) : NaN; };
+function slotNow(sc: S["schedule"]): "day" | "night" | null {
+    const d = minutes(sc.dayAt), n = minutes(sc.nightAt);
+    if (isNaN(d) || isNaN(n) || d === n) return null;
+    const now = new Date(); const t = now.getHours() * 60 + now.getMinutes();
+    return (d < n ? t >= d && t < n : t >= d || t < n) ? "day" : "night";
+}
+/** A saved theme (by name) or a preset. */
+function applyNamed(st: S, name: string) {
+    const c = st.saved[name];
+    if (c) { loadCfg(st, c); apply(st, false); return true; }
+    const p = PRESETS[name];
+    if (p) { st.palette = { ...p }; st.tint = 0; st.bright = 0; apply(st, false); return true; }
+    return false;
+}
+let lastSlot: string | null = null;
+let clock: any;
+function tickSchedule(st: S) {
+    const sc = st.schedule;
+    if (!sc?.on) { lastSlot = null; return; }
+    const slot = slotNow(sc);
+    if (!slot || slot === lastSlot) return;
+    lastSlot = slot;
+    applyNamed(st, slot === "day" ? sc.day : sc.night);
+}
+
+function Schedule({ storage }: { storage: S; }) {
+    const sc = storage.schedule ?? defaults.schedule;
+    const set = (patch: Partial<S["schedule"]>) => { storage.schedule = { ...sc, ...patch }; lastSlot = null; tickSchedule(storage); };
+    const names = [...Object.keys(storage.saved).map(n => n), ...Object.keys(PRESETS)];
+    const Pick = ({ k }: { k: "day" | "night"; }) => (
+        <RN.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingBottom: 10 }}>
+            {names.map(n => (
+                <RN.Pressable key={n} onPress={() => set({ [k]: n })}
+                    style={{ backgroundColor: sc[k] === n ? "#5865f2" : "#4e505888", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+                    <Txt style={{ color: "#fff", fontSize: 13 }}>{storage.saved[n] ? `★ ${n}` : n}</Txt>
+                </RN.Pressable>
+            ))}
+        </RN.ScrollView>
+    );
+    return (
+        <>
+            <SafeSwitchRow label="Switch theme by time of day" sub={sc.on ? `Now: ${slotNow(sc) ?? "check the times"}` : "Off"} value={!!sc.on} onValueChange={v => set({ on: v })} />
+            <SafeInput title="Day starts at (HH:MM)" value={sc.dayAt} placeholder="08:00" onChange={v => set({ dayAt: v })} />
+            <Txt style={{ color: "#949ba4", fontSize: 12, paddingHorizontal: 14, paddingBottom: 6 }}>Day theme</Txt>
+            <Pick k="day" />
+            <SafeInput title="Night starts at (HH:MM)" value={sc.nightAt} placeholder="20:00" onChange={v => set({ nightAt: v })} />
+            <Txt style={{ color: "#949ba4", fontSize: 12, paddingHorizontal: 14, paddingBottom: 6 }}>Night theme</Txt>
+            <Pick k="night" />
+        </>
+    );
+}
+
 let current: S | undefined;
 let unquick: (() => void) | undefined;
 
@@ -344,6 +399,11 @@ export default omniPlugin<S>({
     defaults,
     start(st) {
         current = st;
+        st.schedule ??= { ...defaults.schedule };
+        lastSlot = null;
+        clearInterval(clock);
+        clock = setInterval(() => tickSchedule(st), 60_000);
+        setTimeout(() => tickSchedule(st), 1500);
         // Themes page picks: our entry → turn on; another theme or none → turn off.
         themeHooks.onSelect = theme => {
             if (applying) return;
@@ -391,7 +451,7 @@ export default omniPlugin<S>({
             }] : []),
         );
     },
-    stop() { unquick?.(); themeHooks.onSelect = undefined; clearTimeout(timer); if (current) reset(current, true); },
+    stop() { unquick?.(); clearInterval(clock); themeHooks.onSelect = undefined; clearTimeout(timer); if (current) reset(current, true); },
     Settings({ storage }) {
         useProxy(storage);
         const [url, setUrl] = React.useState("");
@@ -483,6 +543,10 @@ export default omniPlugin<S>({
 
                 <Collapse title="Font">
                     <Fonts />
+                </Collapse>
+
+                <Collapse title="Day / night schedule">
+                    <Schedule storage={storage} />
                 </Collapse>
 
                 <Collapse title="My themes">

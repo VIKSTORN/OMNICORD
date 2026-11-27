@@ -3,6 +3,15 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 36, date: "2026-11-27", title: "Edit fix + more customisation",
+        items: [
+            "Fix: editing a message twice put \"✏️ old text\" in the box and sent a message only you could see",
+            "New: Ω button look: edge tab / circle / square, your own symbol, colors, border, 6 color presets",
+            "New: Custom Theme day / night schedule (saved themes or presets, your own times)",
+            "New: Show Me Your Name: 12h / 24h clock and date format",
+        ],
+    },
+    {
         v: 35, date: "2026-11-23", title: "Cleaner What's new",
         items: [
             "Change: What's new is now a Discord-style bottom sheet (dark, rounded, Discord font)",
