@@ -38,7 +38,7 @@ export default omniPlugin<S>({
             const author = data.message?.author;
             if (!author || (s.ignoreBots && author.bot)) return;
             const m = row?.message;
-            if (!m || typeof m.timestamp !== "string") return;
+            if (!m || typeof m.timestamp !== "string" || m.__omniCleanTime) return;
             const st = statuses(author.id);
             if (!st) return;
             const tag = Object.entries(st)

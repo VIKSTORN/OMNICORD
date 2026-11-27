@@ -3,6 +3,13 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 42, date: "2026-11-27", title: "Cleaner DM Bubbles",
+        items: [
+            "Change: DM Bubbles drops the status / device icons before the time (Clean time, on by default)",
+            "New: Hide time option for a header-free look",
+        ],
+    },
+    {
         v: 41, date: "2026-11-27", title: "Blend modes + DM Bubbles",
         items: [
             "Change: gradient now sits under the picture",

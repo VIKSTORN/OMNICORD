@@ -11,6 +11,8 @@ const defaults = {
     mineColor: "#5865f2", mineAlpha: 9,
     themColor: "#ffffff", themAlpha: 4,
     servers: false,
+    cleanTime: true, // drop status / device icons before the time
+    hideTime: false,
 };
 type S = typeof defaults;
 const HEX = /^#([0-9a-f]{6})$/i;
@@ -39,6 +41,11 @@ export default omniPlugin<S>({
                 for (const k of ["tagText", "opTagText", "roleIcon", "tagType", "tagVerified", "clanTag", "connectionsRoleTag", "avatarDecorationURL"]) if (k in rm) rm[k] = undefined;
                 rm.__omniNoName = true;
             }
+            if (typeof rm.timestamp === "string") {
+                if (s.hideTime) rm.timestamp = ZW;
+                else if (s.cleanTime) rm.timestamp = rm.timestamp.replace(/^[^\p{L}\p{N}]+/u, "");
+            }
+            if (s.cleanTime || s.hideTime) rm.__omniCleanTime = true;
             if (s.tint && !m.__eqm_deleted && !row.backgroundHighlight?.backgroundColor) {
                 const mine = m.author?.id === US?.getCurrentUser?.()?.id;
                 const c = mine ? s.mineColor : s.themColor, a = mine ? s.mineAlpha : s.themAlpha;
@@ -79,6 +86,8 @@ export default omniPlugin<S>({
                 <Section>
                     <Switch store={storage} k="hideNames" label="Avatar only" sub="No name line, just the picture" />
                     <Switch store={storage} k="tint" label="Bubble tint" sub="Soft color behind each side" />
+                    <Switch store={storage} k="cleanTime" label="Clean time" sub="No status / device icons next to the time" />
+                    <Switch store={storage} k="hideTime" label="Hide time" sub="Nothing on the header line" />
                     <Switch store={storage} k="servers" label="Also in servers" sub="Off = DMs and group DMs only" />
                 </Section>
                 {storage.tint ? <><Side title="My messages" ck="mineColor" ak="mineAlpha" /><Side title="Their messages" ck="themColor" ak="themAlpha" /></> : null}
