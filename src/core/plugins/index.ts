@@ -34,6 +34,7 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "omnicord.ghost-ping": require("./omnicord/ports/ghost-ping").default,
     "omnicord.keyword-notify": require("./omnicord/ports/keyword-notify").default,
     "omnicord.message-tags": require("./omnicord/ports/message-tags").default,
+    "omnicord.message-highlights": require("./omnicord/ports/message-highlights").default,
     "omnicord.quick-menu": require("./omnicord/quick-menu").default,
 });
 

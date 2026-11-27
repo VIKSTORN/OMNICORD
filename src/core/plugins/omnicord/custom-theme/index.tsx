@@ -72,7 +72,7 @@ function schedule(st: S) {
  */
 function setBackground(data: any) {
     try {
-        _colorRef.current = data?.background?.url
+        _colorRef.current = data?.background?.url || data?.background?.grad?.on
             ? parseColorManifest(JSON.parse(JSON.stringify({ ...data, rawColors: {} })) as any)
             : null;
     } catch (e) { logger.error("background apply failed", e); }
@@ -238,6 +238,45 @@ async function importFrom(st: S, source: "clipboard" | string) {
 }
 
 // ---------- settings pieces ----------
+
+const GRADS: [string, string, string, string][] = [
+    ["Sunset", "#ff7e5f", "#feb47b", "#6a3093"], ["Ocean", "#0f2027", "#2c5364", "#00b4d8"], ["Aurora", "#00c9a7", "#845ec2", "#0d0221"],
+    ["Fire", "#f12711", "#f5af19", ""], ["Night", "#0f0c29", "#302b63", "#24243e"], ["Candy", "#ff8fb1", "#a18cd1", "#fbc2eb"],
+];
+type Grad = NonNullable<NonNullable<Cfg["bg"]>["grad"]>;
+function Gradient({ storage, onChange }: { storage: S; onChange: (g: Grad) => void; }) {
+    const g: Grad = storage.bg.grad ?? { on: false, c1: "#5865f2", c2: "#000000", c3: "", dir: "v", alpha: 0.5 };
+    const set = (patch: Partial<Grad>) => onChange({ ...g, ...patch });
+    return (
+        <>
+            <SafeSwitchRow label="Gradient" sub={storage.bg.url ? "Laid over the picture" : "Used as the chat background"} value={!!g.on} onValueChange={v => set({ on: v })} />
+            {g.on ? <>
+                <RN.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingBottom: 8 }}>
+                    {GRADS.map(([n, a, b, c]) => (
+                        <RN.Pressable key={n} onPress={() => set({ c1: a, c2: b, c3: c })} style={{ borderRadius: 8, overflow: "hidden", flexDirection: "row" }}>
+                            {[a, b, c].filter(Boolean).map((x, i) => <RN.View key={i} style={{ width: 18, height: 30, backgroundColor: x }} />)}
+                            <Txt style={{ color: "#fff", fontSize: 12, position: "absolute", left: 6, top: 7, fontWeight: "700" }}>{n}</Txt>
+                        </RN.Pressable>
+                    ))}
+                </RN.ScrollView>
+                <ColorField label="Gradient start" value={g.c1} onChange={v => set({ c1: v })} />
+                <ColorField label="Gradient middle" optional sub="Optional" value={g.c3 ? g.c2 : ""} onChange={v => v ? set({ c2: v, c3: g.c3 || g.c2 }) : set({ c2: g.c3 || g.c2, c3: "" })} />
+                <ColorField label="Gradient end" value={g.c3 || g.c2} onChange={v => g.c3 ? set({ c3: v }) : set({ c2: v })} />
+                <RN.View style={{ flexDirection: "row", gap: 6, paddingHorizontal: 14, paddingBottom: 10, alignItems: "center" }}>
+                    <Txt style={{ color: "#dbdee1", fontSize: 16, flex: 1 }}>Direction</Txt>
+                    {([["v", "↓"], ["h", "→"], ["d", "↘"]] as const).map(([k, l]) => (
+                        <RN.Pressable key={k} onPress={() => set({ dir: k })}
+                            style={{ backgroundColor: (g.dir ?? "v") === k ? "#5865f2" : "#4e505888", borderRadius: 8, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Txt style={{ color: "#fff", fontSize: 15 }}>{l}</Txt>
+                        </RN.Pressable>
+                    ))}
+                </RN.View>
+                {storage.bg.url ? <Stepper label="Gradient strength over picture" value={`${Math.round((g.alpha ?? 0.5) * 100)}%`}
+                    onChange={d => set({ alpha: Math.round(clamp((g.alpha ?? 0.5) + d * 0.1, 0.1, 1) * 10) / 10 })} /> : null}
+            </> : null}
+        </>
+    );
+}
 
 function Stepper({ label, value, onChange }: { label: string; value: string; onChange: (d: number) => void; }) {
     return (
@@ -533,6 +572,7 @@ export default omniPlugin<S>({
                     <Stepper label="Parallax smoothness" value={String(storage.bg.smooth ?? 5)}
                         onChange={d => nudge({ bg: { ...storage.bg, smooth: clamp((storage.bg.smooth ?? 5) + d, 1, 10) } })} />
                     <Row label="Reset position" onPress={() => nudge({ bg: { ...storage.bg, zoom: 1, x: 0, y: 0, fit: "cover" } })} />
+                    <Gradient storage={storage} onChange={g => nudge({ bg: { ...storage.bg, grad: g } })} />
                     <Row label="Apply background" sub="Web pictures are downloaded into the app so they load offline" onPress={() => /^https?:/i.test(storage.bg.url) ? setPicture(storage, storage.bg.url) : apply(storage)} />
                     {storage.bg.url ? <Row label="Remove background" danger onPress={() => { storage.bg = { ...storage.bg, url: "", source: "" }; apply(storage); }} /> : null}
                 </Collapse>

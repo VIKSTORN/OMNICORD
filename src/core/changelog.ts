@@ -3,6 +3,13 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 37, date: "2026-11-27", title: "Highlights + gradients",
+        items: [
+            "New: Message Highlights: tint + colored left bar for your messages, mentions, friends, chosen people, keywords",
+            "New: gradient chat background (2 or 3 colors, ↓ → ↘, 6 presets), alone or over your picture",
+        ],
+    },
+    {
         v: 36, date: "2026-11-27", title: "Edit fix + more customisation",
         items: [
             "Fix: editing a message twice put \"✏️ old text\" in the box and sent a message only you could see",
