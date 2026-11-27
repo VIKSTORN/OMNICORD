@@ -245,13 +245,16 @@ const GRADS: [string, string, string, string][] = [
     ["Aurora", "#06141b", "#0f3b3a", "#1d1036"], ["Plum", "#1c0f24", "#3b1d4a", "#0e0812"], ["Forest", "#0b1710", "#1d3a26", "#060d08"],
     ["Sunset", "#2b1028", "#7a2e3a", "#f0884f"], ["Candy", "#2a1830", "#6b3a7a", "#c98bd6"], ["Mono", "#000000", "#1e1f22", "#000000"],
 ];
+const BLENDS: [string, string][] = [["normal", "Normal"], ["multiply", "Multiply"], ["darken", "Darken"], ["color-burn", "Burn"],
+    ["overlay", "Overlay"], ["soft-light", "Soft light"], ["hard-light", "Hard light"], ["screen", "Screen"], ["lighten", "Lighten"],
+    ["color-dodge", "Dodge"], ["difference", "Difference"], ["luminosity", "Luminosity"], ["color", "Color"]];
 type Grad = NonNullable<NonNullable<Cfg["bg"]>["grad"]>;
 function Gradient({ storage, onChange }: { storage: S; onChange: (g: Grad) => void; }) {
     const g: Grad = storage.bg.grad ?? { on: false, c1: "#1a1b2e", c2: "#3a2a4f", c3: "#0d0d16", dir: "v", alpha: 0.35 };
     const set = (patch: Partial<Grad>) => onChange({ ...g, ...patch });
     return (
         <>
-            <SafeSwitchRow label="Gradient" sub={storage.bg.url ? "Laid over the picture" : "Used as the chat background"} value={!!g.on} onValueChange={v => set({ on: v })} />
+            <SafeSwitchRow label="Gradient" sub={storage.bg.url ? "Drawn under the picture, blended with it" : "Used as the chat background"} value={!!g.on} onValueChange={v => set({ on: v })} />
             {g.on ? <>
                 <RN.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingBottom: 8 }}>
                     {GRADS.map(([n, a, b, c]) => (
@@ -273,7 +276,18 @@ function Gradient({ storage, onChange }: { storage: S; onChange: (g: Grad) => vo
                         </RN.Pressable>
                     ))}
                 </RN.View>
-                <Stepper label={storage.bg.url ? "Gradient strength over picture" : "Gradient strength"} value={`${Math.round((g.alpha ?? (storage.bg.url ? 0.35 : 1)) * 100)}%`}
+                {storage.bg.url ? <>
+                    <Txt style={{ color: "#dbdee1", fontSize: 16, paddingHorizontal: 14, paddingTop: 4 }}>Picture blend</Txt>
+                    <RN.View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingHorizontal: 14, paddingVertical: 8 }}>
+                        {BLENDS.map(([k, t]) => (
+                            <RN.Pressable key={k} onPress={() => set({ blend: k, ...(k !== "normal" && (g.alpha ?? 0.35) < 0.6 ? { alpha: 0.85 } : {}) })}
+                                style={{ backgroundColor: (g.blend ?? "normal") === k ? "#5865f2" : "#4e505888", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}>
+                                <Txt style={{ color: "#fff", fontSize: 14 }}>{t}</Txt>
+                            </RN.Pressable>
+                        ))}
+                    </RN.View>
+                </> : null}
+                <Stepper label={storage.bg.url ? "Gradient strength under picture" : "Gradient strength"} value={`${Math.round((g.alpha ?? (storage.bg.url ? 0.35 : 1)) * 100)}%`}
                     onChange={d => set({ alpha: Math.round(clamp((g.alpha ?? (storage.bg.url ? 0.35 : 1)) + d * 0.05, 0.05, 1) * 100) / 100 })} />
             </> : null}
         </>

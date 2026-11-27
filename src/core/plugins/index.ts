@@ -35,6 +35,7 @@ export const getCorePlugins = (): Record<string, CorePlugin> => ({
     "omnicord.keyword-notify": require("./omnicord/ports/keyword-notify").default,
     "omnicord.message-tags": require("./omnicord/ports/message-tags").default,
     "omnicord.message-highlights": require("./omnicord/ports/message-highlights").default,
+    "omnicord.dm-bubbles": require("./omnicord/ports/dm-bubbles").default,
     "omnicord.quick-menu": require("./omnicord/quick-menu").default,
 });
 

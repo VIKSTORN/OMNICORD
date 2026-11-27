@@ -10,11 +10,12 @@ import { Animated, Image, StyleSheet, useWindowDimensions, View } from "react-na
 import { logger } from "@lib/utils/logger";
 import { gradientUri } from "@lib/utils/gradientPng";
 
+const canBlend = !!(globalThis as any).nativeFabricUIManager;
 const Messages = findByFilePathLazy("modules/messages/native/Messages.tsx", true);
 
 /** Omnicord gradient: a tiny generated PNG stretched over the screen (smooth, no bands). */
 const gradCache = new Map<string, string>();
-function Gradient({ g, solo }: { g: any; solo: boolean; w?: number; h?: number; }) {
+function Gradient({ g, solo, opacity: forced }: { g: any; solo: boolean; opacity?: number; w?: number; h?: number; }) {
     const HEX = /^#([0-9a-f]{6})$/i;
     const stops = [g.c1, g.c2, g.c3].filter((c: string) => typeof c === "string" && HEX.test(c));
     if (stops.length < 2) return null;
@@ -27,7 +28,7 @@ function Gradient({ g, solo }: { g: any; solo: boolean; w?: number; h?: number; 
             gradCache.set(key, uri);
         } catch { return null; }
     }
-    const opacity = solo ? (typeof g.alpha === "number" ? Math.max(0.3, g.alpha) : 1) : (typeof g.alpha === "number" ? g.alpha : 0.35);
+    const opacity = forced ?? solo ? (typeof g.alpha === "number" ? Math.max(0.3, g.alpha) : 1) : (typeof g.alpha === "number" ? g.alpha : 0.35);
     return <Image source={{ uri }} resizeMode="stretch" fadeDuration={0} style={[StyleSheet.absoluteFill, { opacity, width: "100%", height: "100%" }]} />;
 }
 
@@ -117,17 +118,25 @@ function ThemeBackground({ children }: { children: React.ReactNode; }) {
     const onRelease = () => { if (range) go(0, 0); if (follow) moveLight(home.x, home.y); };
     const touch = range || follow ? { onTouchStart: onPoint, onTouchMove: onPoint, onTouchEnd: onRelease, onTouchCancel: onRelease } : {};
 
+    // Omnicord: gradient sits under the picture; the picture blends onto it (mixBlendMode needs the new arch).
+    const blend = typeof bg.grad?.blend === "string" ? bg.grad.blend : "normal";
+    const gAlpha = typeof bg.grad?.alpha === "number" ? bg.grad.alpha : 0.35;
     return <View style={{ flex: 1, height: "100%", overflow: "hidden" }} {...touch}>
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { isolation: "isolate" } as any, {
             transform: [{ translateX: tx }, { translateY: ty }, { translateX: pan.x }, { translateY: pan.y }, { scale: zoom * extra }],
         }]}>
-            {bg.url ? <Image
-                style={StyleSheet.absoluteFill}
-                source={{ uri: bg.url }}
-                blurRadius={bg.blur}
-                resizeMode={bg.fit === "contain" || bg.fit === "stretch" ? bg.fit : "cover"}
-            /> : null}
-            {bg.grad?.on ? <Gradient g={bg.grad} solo={!bg.url} w={width} h={height} /> : null}
+            {bg.grad?.on ? <Gradient g={bg.grad} solo={!bg.url} opacity={bg.url ? (blend === "normal" || !canBlend ? 1 : gAlpha) : undefined} w={width} h={height} /> : null}
+            {bg.url ? <View style={[StyleSheet.absoluteFill, {
+                opacity: bg.grad?.on && (blend === "normal" || !canBlend) ? 1 - gAlpha * 0.85 : 1,
+                ...(bg.grad?.on && canBlend && blend !== "normal" ? { mixBlendMode: blend } : {}),
+            } as any]}>
+                <Image
+                    style={StyleSheet.absoluteFill}
+                    source={{ uri: bg.url }}
+                    blurRadius={bg.blur}
+                    resizeMode={bg.fit === "contain" || bg.fit === "stretch" ? bg.fit : "cover"}
+                />
+            </View> : null}
         </Animated.View>
         {light ? <Glow l={light} w={width} h={height} pos={glow} /> : null}
         {bg.vignette ? <Vignette v={bg.vignette} /> : null}

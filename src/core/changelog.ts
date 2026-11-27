@@ -3,6 +3,16 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 41, date: "2026-11-27", title: "Blend modes + DM Bubbles",
+        items: [
+            "Change: gradient now sits under the picture",
+            "New: picture blend modes over the gradient: Multiply, Darken, Burn, Overlay, Soft/Hard light, Screen, Lighten, Dodge, Difference, Luminosity, Color",
+            "New: DM Bubbles plugin: avatar-only DMs + soft tint for your side and theirs, own colors and strength",
+            "Fix: avatar-only now really hides the name (zero-width name, tags and name color dropped)",
+            "New: DM bubbles switch in the Ω menu",
+        ],
+    },
+    {
         v: 40, date: "2026-11-27", title: "Smoother gradients",
         items: [
             "Fix: gradient had visible stripes, now one smooth image with soft blending",

@@ -212,6 +212,7 @@ const TOGGLES: [id: string, label: string, sub: string, icon: string[]][] = [
     ["hide-blocked", "Hide blocked messages", "Re-open the chat after", ["BlockIcon", "ic_block", "DenyIcon"]],
     ["anonymise-files", "Anonymise file names", "Random names on uploads", ["AttachmentIcon", "ic_attachment_white_24dp", "FileIcon"]],
     ["clear-urls", "Clear URLs", "Strip tracking from links", ["LinkIcon", "ic_link_24px"]],
+    ["dm-bubbles", "DM bubbles", "Avatar-only DMs, re-open the chat", ["ChatIcon", "ic_chat_bubble_16px", "ChatSmileIcon"]],
     ["ghost-ping", "Ghost ping alerts", "Toast on deleted pings", ["BellIcon", "ic_notifications_24px"]],
     ["keyword-notify", "Keyword alerts", "Toast on your keywords", ["BellIcon", "ic_notifications_24px"]],
 ];

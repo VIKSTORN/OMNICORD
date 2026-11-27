@@ -13,8 +13,6 @@ const defaults = {
     friends: rule(false, "#23a55a", 8),
     users: rule(false, "#eb459e", 14), userList: "",
     keywords: rule(false, "#00b4d8", 14), keywordList: "",
-    hideNames: false,   // avatar only, no name line (experimental)
-    namesDmOnly: true,  // …only in DMs / group DMs
     v2: false,
     v3: false,
 };
@@ -25,7 +23,7 @@ let undo: (() => void) | undefined;
 export default omniPlugin<S>({
     id: "message-highlights",
     name: "Message Highlights",
-    description: "Soft color glow on your messages, mentions, friends, chosen people, keywords · avatar-only chat",
+    description: "Soft color glow on your messages, mentions, friends, chosen people, keywords",
     defaults,
     start(s) {
         if (!s.v3) { s.mine = { ...s.mine, on: false, alpha: Math.min(s.mine.alpha, 6) }; s.v3 = true; }
@@ -33,16 +31,9 @@ export default omniPlugin<S>({
         const RowManager = findByName("RowManager");
         const US = findByStoreName("UserStore");
         const RS = findByStoreName("RelationshipStore");
-        const CS = findByStoreName("ChannelStore");
         undo = after("generate", RowManager.prototype, ([data]: any[], row: any) => {
             if (data?.rowType !== 1 || !row?.message) return;
             const m = data.message;
-            if (s.hideNames && (!s.namesDmOnly || !CS?.getChannel?.(m.channel_id)?.guild_id)) {
-                // Clean chat: keep the avatar, drop the name line and its tags.
-                const rm = row.message;
-                if (typeof rm.username === "string") rm.username = "";
-                for (const k of ["tagText", "opTagText", "roleIcon", "tagType", "clanTag", "connectionsRoleTag"]) if (k in rm) rm[k] = undefined;
-            }
             if (!m || m.__eqm_deleted) return; // message logger paints deleted ones red
             const me = US.getCurrentUser()?.id;
             const aid = m.author?.id;
@@ -104,19 +95,7 @@ export default omniPlugin<S>({
         return (
             <Scroll>
                 <Txt style={{ color: "#949ba4", fontSize: 12, paddingHorizontal: 4 }}>Discord only lets a message row take one flat color, so keep the strength low (4–8%) for a subtle look. Re-open the chat to see changes.</Txt>
-                <Section title="Chat style">
-                    <RN.View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10 }}>
-                        <RN.View style={{ flex: 1 }}>
-                            <Txt style={{ color: "#dbdee1", fontSize: 16 }}>Avatar only (hide names)</Txt>
-                            <Txt style={{ color: "#949ba4", fontSize: 12 }}>Experimental: cleaner, bubble-like chat. Re-open the chat.</Txt>
-                        </RN.View>
-                        <RN.Switch value={!!storage.hideNames} onValueChange={v => void (storage.hideNames = v)} />
-                    </RN.View>
-                    {storage.hideNames ? <RN.View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 10 }}>
-                        <Txt style={{ color: "#dbdee1", fontSize: 15, flex: 1 }}>Only in DMs</Txt>
-                        <RN.Switch value={storage.namesDmOnly !== false} onValueChange={v => void (storage.namesDmOnly = v)} />
-                    </RN.View> : null}
-                </Section>
+                <Txt style={{ color: "#949ba4", fontSize: 12, paddingHorizontal: 4 }}>Avatar-only chat moved to the DM Bubbles plugin.</Txt>
                 <Rule k="mine" title="My messages" />
                 <Rule k="mention" title="Mentions of me" />
                 <Rule k="friends" title="Friends" />
