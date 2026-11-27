@@ -3,6 +3,16 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 38, date: "2026-11-27", title: "Light & glow",
+        items: [
+            "New: glow light on the chat background: color, brightness, size, top / middle / bottom",
+            "New: the light can follow your finger smoothly and glide back",
+            "New: vignette (darker edges)",
+            "Change: Message Highlights is a soft glow now, left bar off by default",
+            "New: avatar-only chat (hide names), experimental",
+        ],
+    },
+    {
         v: 37, date: "2026-11-27", title: "Highlights + gradients",
         items: [
             "New: Message Highlights: tint + colored left bar for your messages, mentions, friends, chosen people, keywords",

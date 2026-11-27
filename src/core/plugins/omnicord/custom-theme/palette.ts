@@ -54,6 +54,7 @@ export const PRESETS: Record<string, Palette> = {
 export type Cfg = {
     palette: Palette;
     bg?: { url: string; blur: number; alpha: number; source?: string; zoom?: number; x?: number; y?: number; fit?: "cover" | "contain" | "stretch"; parallax?: number; smooth?: number;
+        light?: { on: boolean; color: string; strength: number; size: number; pos: "top" | "center" | "bottom"; follow: boolean; }; vignette?: number;
         grad?: { on: boolean; c1: string; c2: string; c3?: string; dir?: "v" | "h" | "d"; alpha?: number; }; };
     deep?: boolean;
     tint?: number;    // 0..100: pull backgrounds toward the accent

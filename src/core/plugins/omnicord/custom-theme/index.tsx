@@ -72,7 +72,8 @@ function schedule(st: S) {
  */
 function setBackground(data: any) {
     try {
-        _colorRef.current = data?.background?.url || data?.background?.grad?.on
+        const b = data?.background;
+        _colorRef.current = b?.url || b?.grad?.on || b?.light?.on || b?.vignette
             ? parseColorManifest(JSON.parse(JSON.stringify({ ...data, rawColors: {} })) as any)
             : null;
     } catch (e) { logger.error("background apply failed", e); }
@@ -274,6 +275,32 @@ function Gradient({ storage, onChange }: { storage: S; onChange: (g: Grad) => vo
                 {storage.bg.url ? <Stepper label="Gradient strength over picture" value={`${Math.round((g.alpha ?? 0.5) * 100)}%`}
                     onChange={d => set({ alpha: Math.round(clamp((g.alpha ?? 0.5) + d * 0.1, 0.1, 1) * 10) / 10 })} /> : null}
             </> : null}
+        </>
+    );
+}
+
+type Light = NonNullable<NonNullable<Cfg["bg"]>["light"]>;
+function LightFx({ storage, onChange }: { storage: S; onChange: (p: Partial<NonNullable<Cfg["bg"]>>) => void; }) {
+    const l: Light = storage.bg.light ?? { on: false, color: "#ffffff", strength: 0.35, size: 0.8, pos: "top", follow: true };
+    const set = (p: Partial<Light>) => onChange({ light: { ...l, ...p } });
+    const chip = (on: boolean) => ({ backgroundColor: on ? "#5865f2" : "#4e505888", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 });
+    return (
+        <>
+            <SafeSwitchRow label="Glow light" sub="A soft brighter light over the chat background" value={!!l.on} onValueChange={v => set({ on: v })} />
+            {l.on ? <>
+                <ColorField label="Light color" value={l.color} onChange={v => set({ color: v })} />
+                <Stepper label="Brightness" value={`${Math.round(l.strength * 100)}%`} onChange={d => set({ strength: Math.round(clamp(l.strength + d * 0.05, 0.05, 1) * 100) / 100 })} />
+                <Stepper label="Size" value={`${Math.round(l.size * 100)}%`} onChange={d => set({ size: Math.round(clamp(l.size + d * 0.1, 0.3, 2) * 10) / 10 })} />
+                <RN.View style={{ flexDirection: "row", gap: 6, paddingHorizontal: 14, paddingBottom: 10, alignItems: "center" }}>
+                    <Txt style={{ color: "#dbdee1", fontSize: 16, flex: 1 }}>Position</Txt>
+                    {([["top", "Top"], ["center", "Middle"], ["bottom", "Bottom"]] as const).map(([k, t]) => (
+                        <RN.Pressable key={k} onPress={() => set({ pos: k })} style={chip(l.pos === k)}><Txt style={{ color: "#fff", fontSize: 14 }}>{t}</Txt></RN.Pressable>
+                    ))}
+                </RN.View>
+                <SafeSwitchRow label="Follows your finger" sub="Moves smoothly to where you touch, glides back after" value={!!l.follow} onValueChange={v => set({ follow: v })} />
+            </> : null}
+            <Stepper label="Vignette (darker edges)" value={storage.bg.vignette ? `${Math.round(storage.bg.vignette * 100)}%` : "Off"}
+                onChange={d => onChange({ vignette: Math.round(clamp((storage.bg.vignette ?? 0) + d * 0.1, 0, 1) * 10) / 10 })} />
         </>
     );
 }
@@ -575,6 +602,10 @@ export default omniPlugin<S>({
                     <Gradient storage={storage} onChange={g => nudge({ bg: { ...storage.bg, grad: g } })} />
                     <Row label="Apply background" sub="Web pictures are downloaded into the app so they load offline" onPress={() => /^https?:/i.test(storage.bg.url) ? setPicture(storage, storage.bg.url) : apply(storage)} />
                     {storage.bg.url ? <Row label="Remove background" danger onPress={() => { storage.bg = { ...storage.bg, url: "", source: "" }; apply(storage); }} /> : null}
+                </Collapse>
+
+                <Collapse title="Light & glow">
+                    <LightFx storage={storage} onChange={patch => nudge({ bg: { ...storage.bg, ...patch } })} />
                 </Collapse>
 
                 <Collapse title="Every Discord color (advanced)">

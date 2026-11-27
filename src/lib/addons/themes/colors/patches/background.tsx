@@ -36,19 +36,64 @@ function Gradient({ g, solo, w, h }: { g: any; solo: boolean; w: number; h: numb
     );
 }
 
+const HEXC = /^#([0-9a-f]{6})$/i;
+const a2 = (o: number) => Math.round(Math.max(0, Math.min(1, o)) * 255).toString(16).padStart(2, "0");
+
+/** Soft radial glow: stacked circles, each adding a little light (brighter in the middle). */
+function Glow({ l, w, h, pos }: { l: any; w: number; h: number; pos: Animated.ValueXY; }) {
+    const color = HEXC.test(l.color) ? l.color : "#ffffff";
+    const R = Math.max(40, (typeof l.size === "number" ? l.size : 0.8) * Math.max(w, h) * 0.5);
+    const strength = typeof l.strength === "number" ? l.strength : 0.35;
+    const N = 18;
+    return (
+        <Animated.View pointerEvents="none" style={{
+            position: "absolute", left: -R, top: -R, width: R * 2, height: R * 2,
+            transform: [{ translateX: pos.x }, { translateY: pos.y }],
+        }}>
+            {Array.from({ length: N }, (_, i) => {
+                const r = R * (1 - i / N);
+                return <View key={i} style={{
+                    position: "absolute", left: R - r, top: R - r, width: r * 2, height: r * 2, borderRadius: r,
+                    backgroundColor: color + a2((strength / N) * (0.6 + i / N)),
+                }} />;
+            })}
+        </Animated.View>
+    );
+}
+
+/** Darker edges so the middle pops. */
+function Vignette({ v }: { v: number; }) {
+    const N = 10;
+    const band = (side: "top" | "bottom" | "left" | "right") => Array.from({ length: N }, (_, i) => (
+        <View key={side + i} style={{
+            position: "absolute", backgroundColor: "#000000" + a2(v * 0.22 * (1 - i / N)),
+            ...(side === "top" || side === "bottom"
+                ? { left: 0, right: 0, height: `${(i + 1) * 2.2}%` as any, [side]: 0 }
+                : { top: 0, bottom: 0, width: `${(i + 1) * 2.2}%` as any, [side]: 0 }),
+        }} />
+    ));
+    return <View pointerEvents="none" style={StyleSheet.absoluteFill}>{band("top")}{band("bottom")}{band("left")}{band("right")}</View>;
+}
+
+const lightHome = (l: any, w: number, h: number) =>
+    !l ? { x: 0, y: 0 } : { x: 0.5 * w, y: (l.pos === "center" ? 0.45 : l.pos === "bottom" ? 0.9 : 0.08) * h };
+
 function ThemeBackground({ children }: { children: React.ReactNode; }) {
     useObservable([colorsPref]);
     const { width, height } = useWindowDimensions();
     const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+    const glow = useRef(new Animated.ValueXY({ x: -9999, y: -9999 })).current;
     const bg: any = _colorRef.current?.background;
     // Omnicord parallax: 0 = off, 1..10 strength; smooth 1..10 (higher = softer, slower).
     const strength = typeof bg?.parallax === "number" ? bg.parallax : 0;
     const smooth = typeof bg?.smooth === "number" ? bg.smooth : 5;
     useEffect(() => () => pan.stopAnimation(), []);
+    const lp = bg?.light?.on ? bg.light.pos : null;
+    useEffect(() => { if (lp) glow.setValue(lightHome(bg.light, width, height)); }, [lp, width, height]);
 
     if (!_colorRef.current
         || colorsPref.customBackground === "hidden"
-        || (!bg?.url && !bg?.grad?.on)
+        || (!bg?.url && !bg?.grad?.on && !bg?.light?.on && !bg?.vignette)
         || bg?.blur && (typeof bg?.blur !== "number")
     ) {
         return children;
@@ -64,12 +109,18 @@ function ThemeBackground({ children }: { children: React.ReactNode; }) {
         toValue: { x, y }, useNativeDriver: true,
         friction: 4 + smooth * 1.6, tension: Math.max(8, 60 - smooth * 5),
     }).start();
-    const touch = range ? {
-        onTouchStart: (e: any) => go((e.nativeEvent.pageX / width - 0.5) * 2 * range, (e.nativeEvent.pageY / height - 0.5) * 2 * range),
-        onTouchMove: (e: any) => go((e.nativeEvent.pageX / width - 0.5) * 2 * range, (e.nativeEvent.pageY / height - 0.5) * 2 * range),
-        onTouchEnd: () => go(0, 0),
-        onTouchCancel: () => go(0, 0),
-    } : {};
+    // Light: fixed spot, or follows your finger (smoothly) and drifts back when you let go.
+    const light = bg.light?.on ? bg.light : null;
+    const home = lightHome(light, width, height);
+    const follow = !!light && !!light.follow;
+    const moveLight = (x: number, y: number) => Animated.spring(glow, { toValue: { x, y }, useNativeDriver: true, friction: 4 + smooth * 1.6, tension: Math.max(8, 60 - smooth * 5) }).start();
+    const onPoint = (e: any) => {
+        const { pageX, pageY } = e.nativeEvent;
+        if (range) go((pageX / width - 0.5) * 2 * range, (pageY / height - 0.5) * 2 * range);
+        if (follow) moveLight(pageX, pageY);
+    };
+    const onRelease = () => { if (range) go(0, 0); if (follow) moveLight(home.x, home.y); };
+    const touch = range || follow ? { onTouchStart: onPoint, onTouchMove: onPoint, onTouchEnd: onRelease, onTouchCancel: onRelease } : {};
 
     return <View style={{ flex: 1, height: "100%", overflow: "hidden" }} {...touch}>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, {
@@ -83,6 +134,8 @@ function ThemeBackground({ children }: { children: React.ReactNode; }) {
             /> : null}
             {bg.grad?.on ? <Gradient g={bg.grad} solo={!bg.url} w={width} h={height} /> : null}
         </Animated.View>
+        {light ? <Glow l={light} w={width} h={height} pos={glow} /> : null}
+        {bg.vignette ? <Vignette v={bg.vignette} /> : null}
         {children}
     </View>;
 }
@@ -91,7 +144,8 @@ export default function patchChatBackground() {
     try {
         const patches = [
             after("render", Messages, (_, ret) => {
-                if (!_colorRef.current || (!_colorRef.current.background?.url && !(_colorRef.current.background as any)?.grad?.on)) return;
+                const b: any = _colorRef.current?.background;
+                if (!_colorRef.current || (!b?.url && !b?.grad?.on && !b?.light?.on && !b?.vignette)) return;
 
                 const messagesComponent = findInReactTree(
                     ret,
