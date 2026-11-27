@@ -14,6 +14,7 @@ const defaults = {
     users: rule(false, "#eb459e", 14), userList: "",
     keywords: rule(false, "#00b4d8", 14), keywordList: "",
     hideNames: false,   // avatar only, no name line (experimental)
+    namesDmOnly: true,  // …only in DMs / group DMs
     v2: false,
 };
 type S = typeof defaults;
@@ -30,10 +31,11 @@ export default omniPlugin<S>({
         const RowManager = findByName("RowManager");
         const US = findByStoreName("UserStore");
         const RS = findByStoreName("RelationshipStore");
+        const CS = findByStoreName("ChannelStore");
         undo = after("generate", RowManager.prototype, ([data]: any[], row: any) => {
             if (data?.rowType !== 1 || !row?.message) return;
             const m = data.message;
-            if (s.hideNames) {
+            if (s.hideNames && (!s.namesDmOnly || !CS?.getChannel?.(m.channel_id)?.guild_id)) {
                 // Clean chat: keep the avatar, drop the name line and its tags.
                 const rm = row.message;
                 if (typeof rm.username === "string") rm.username = "";
@@ -108,6 +110,10 @@ export default omniPlugin<S>({
                         </RN.View>
                         <RN.Switch value={!!storage.hideNames} onValueChange={v => void (storage.hideNames = v)} />
                     </RN.View>
+                    {storage.hideNames ? <RN.View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 10 }}>
+                        <Txt style={{ color: "#dbdee1", fontSize: 15, flex: 1 }}>Only in DMs</Txt>
+                        <RN.Switch value={storage.namesDmOnly !== false} onValueChange={v => void (storage.namesDmOnly = v)} />
+                    </RN.View> : null}
                 </Section>
                 <Rule k="mine" title="My messages" />
                 <Rule k="mention" title="Mentions of me" />

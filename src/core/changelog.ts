@@ -3,6 +3,10 @@ export interface ChangelogEntry { v: number; date: string; title: string; items:
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
+        v: 39, date: "2026-11-27", title: "Avatar-only chat in DMs",
+        items: ["Change: avatar-only chat (hide names) applies only in DMs by default, with a switch for servers too"],
+    },
+    {
         v: 38, date: "2026-11-27", title: "Light & glow",
         items: [
             "New: glow light on the chat background: color, brightness, size, top / middle / bottom",
